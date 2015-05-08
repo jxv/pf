@@ -4,71 +4,67 @@
 #include <ML/ml.h>
 #include <PF/pf.h>
 #include <SDL2/SDL.h>
+#include <math.h>
 
-typedef struct {
+struct key_body {
 	int key;
 	const PFBody *body;
-} KeyBody;
+};
 
-typedef struct {
-	int aKey;
-	int bKey;
+struct keys_manifold {
+	int a_key;
+	int b_key;
 	PFManifold manifold;
-} KeysManifold;
+};
 
 #define MAX_BODIES 4096 /* So many bodies */
 #define MAX_MANIFOLDS (MAX_BODIES * 2) /* Large enough */
 #define CANNON_BALL_RADIUS 1.5
 
-typedef struct {
+struct world {
 	PFBody bodies[MAX_BODIES];
-	int bodyCount;
-	KeysManifold manifolds[MAX_MANIFOLDS];
+	int body_count;
+	struct keys_manifold manifolds[MAX_MANIFOLDS];
 	int manifoldCount;
 	float dt;
 	MLV2f gravity;
 	int iterations;
-} World;
+};
 
-typedef struct {
+struct input {
 	bool quit;
 	bool left;
 	bool right;
 	bool up;
 	bool down;
-} Input;
+};
 
-typedef struct {
-	SDL_Renderer *ren;
-	World world;
-	Input input;
-	SDL_Texture *circle;
-	SDL_Texture *box;
-	SDL_Texture *cannonBall;
-} Demo;
+struct demo {
+	SDL_Renderer *renderer;
+	struct world world;
+	struct input input;
+};
 
-void mkDemo(Demo *d, SDL_Renderer *ren);
-void brDemo(Demo *d);
-void loopDemo(Demo *d);
+void make_demo(struct demo *d, SDL_Renderer *renderer);
+void loop_demo(struct demo *d);
 
 int main() {
 	if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
 		return EXIT_FAILURE;
 	}
-	SDL_Window *win = SDL_CreateWindow("PF Demo", 0, 0, 800, 600, 0);
-	SDL_Renderer *ren = SDL_CreateRenderer(win, -1, 0);
-	Demo demo;
-	mkDemo(&demo, ren);
-	loopDemo(&demo);
-	brDemo(&demo);
-	SDL_DestroyRenderer(ren);
+	SDL_Window *win = SDL_CreateWindow("PF Demo", 0, 0, 320, 240, 0);
+	SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
+	struct demo demo;
+	make_demo(&demo, renderer);
+	loop_demo(&demo);
+	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(win);
 	SDL_Quit();
 	return EXIT_SUCCESS;
 }
 
-void mkWorld(World *w) {
-	w->bodyCount = 0;
+void make_world_0(struct world *w) {
+	w->body_count = 0;
 	w->manifoldCount = 0;
 	w->dt = 1.0 / 60.0;
 	w->gravity = mlV2f(0,0);
@@ -83,7 +79,7 @@ void mkWorld(World *w) {
 	w->bodies[0].velocity = mlV2f(200,0);
 	pfMetalEsque(w->bodies + 0);
 
-	w->bodyCount++;
+	w->body_count++;
 
 	for (int i = 0; i < 50; i++) {
 		for (int j = 0; j < 50; j++) {
@@ -91,18 +87,90 @@ void mkWorld(World *w) {
 			a->shape = (i + j) % 2 == 0 ? pfBox(1) : pfCircle(1);
 			a->position = mlV2f(i * 1 + 6,j * 1 + 5);
 			pfRockEsque(a);
-			w->bodyCount++;
+			w->body_count++;
 		}
+	}
+	
+	// walls
+	PFBody *lf, *rt, *up, *dn;
+	lf = w->bodies + w->body_count;
+//	w->body_count++;
+	rt = w->bodies + w->body_count;
+//	w->body_count++;
+	up = w->bodies + w->body_count;
+//	w->body_count++;
+	dn = w->bodies + w->body_count;
+//	w->body_count++;
+	
+	lf->position = mlV2f(-40, -20);
+	lf->shape = pfRect(40, 80);
+	pfBodySetMass(0, lf);
+	
+	rt->position = mlV2f(100, -20);
+	rt->shape = pfRect(40, 80);
+	pfBodySetMass(0, rt);
+
+	up->position = mlV2f(40, -20);
+	up->shape = pfRect(100, 40);
+	pfBodySetMass(0, up);
+	
+	dn->position = mlV2f(40, 80);
+	dn->shape = pfRect(100, 40);
+	pfBodySetMass(0, dn);
+}
+
+void make_world_1(struct world *w) {
+	w->body_count = 0;
+	w->manifoldCount = 0;
+	w->dt = 1.0 / 60.0;
+	w->gravity = mlV2f(0.5,9.8);
+	w->iterations = 10;
+	
+	{
+		PFBody *a = &w->bodies[w->body_count];
+		w->body_count++;
+		pfBodySetMass(0, a);
+		a->shape = pfCircle(50); 
+		a->position = mlV2f(40,-50);
+		pfBouncyBallEsque(a);
+	}
+
+	{
+		PFBody *a = &w->bodies[w->body_count];
+		w->body_count++;
+		pfBodySetMass(0, a);
+		a->shape = pfCircle(10); 
+		a->position = mlV2f(10,30);
+		a->velocity = mlV2f(30,0);
+		pfBouncyBallEsque(a);
+	}
+	
+	{
+		PFBody *a = &w->bodies[w->body_count];
+		w->body_count++;
+		pfBodySetMass(0, a);
+		a->shape = pfRect(20,60);
+		a->position = mlV2f(140,30);
+		pfMetalEsque(a);
+	}
+	
+	{
+		PFBody *a = &w->bodies[w->body_count];
+		w->body_count++;
+		pfBodySetMass(0, a);
+		a->shape = pfRect(100,10);
+		a->position = mlV2f(100,200);
 	}
 }
 
-SDL_Texture *createCircleTex(const float radius, SDL_Renderer *ren) {
-	const MLV2f size = mlV2Fillf(10 *radius);
-	SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size.x, size.y);
-	SDL_SetRenderTarget(ren, tex);
-	SDL_SetRenderDrawColor(ren, 0x00, 0x00, 0x00, 0x00);
-	SDL_RenderClear(ren);
-	SDL_SetRenderDrawColor(ren, 0xff, 0xff, 0xff, 0xff);
+
+SDL_Texture *createCircleTex(const float radius, SDL_Renderer *renderer) {
+	const MLV2f size = mlV2Fillf(10 * radius);
+	SDL_Texture *tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size.x, size.y);
+	SDL_SetRenderTarget(renderer, tex);
+	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+	SDL_RenderClear(renderer);
+	SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
 
 	SDL_Point points[16];
 	const float rad = 5 * radius - 0.5;
@@ -112,39 +180,30 @@ SDL_Texture *createCircleTex(const float radius, SDL_Renderer *ren) {
 		const MLV2f point = mlAddV2f(center, mlMulV2ff(mlV2f(mlCosf(theta), mlSinf(theta)), rad));
 		points[i] = (SDL_Point) { .x = mlRoundf(point.x), .y = mlRoundf(point.y) };
 	}
-	SDL_RenderDrawLines(ren, points, 16);
+	SDL_RenderDrawLines(renderer, points, 16);
 
-	SDL_SetRenderTarget(ren, NULL);
+	SDL_SetRenderTarget(renderer, NULL);
 	return tex;
 }
 
-SDL_Texture *createBoxTex(SDL_Renderer *ren) {
-	SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 10, 10);
-	SDL_SetRenderTarget(ren, tex);
-	SDL_SetRenderDrawColor(ren, 0x00, 0x00, 0x00, 0x00);
-	SDL_RenderClear(ren);
-	SDL_SetRenderDrawColor(ren, 0xff, 0xff, 0xff, 0xff);
+SDL_Texture *createBoxTex(SDL_Renderer *renderer) {
+	SDL_Texture *tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 10, 10);
+	SDL_SetRenderTarget(renderer, tex);
+	SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+	SDL_RenderClear(renderer);
+	SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
 	const SDL_Rect rect = { .x = 0, .y = 0, .w = 10, .h = 10 };
-	SDL_RenderDrawRect(ren, &rect);
-	SDL_SetRenderTarget(ren, NULL);
+	SDL_RenderDrawRect(renderer, &rect);
+	SDL_SetRenderTarget(renderer, NULL);
 	return tex;
 }
 
-void mkDemo(Demo *d, SDL_Renderer *ren) {
-	d->ren = ren;
-	mkWorld(&d->world);
-	d->cannonBall = createCircleTex(CANNON_BALL_RADIUS, d->ren);
-	d->circle = createCircleTex(1, d->ren);
-	d->box = createBoxTex(d->ren);
+void make_demo(struct demo *d, SDL_Renderer *renderer) {
+	d->renderer = renderer;
+	make_world_1(&d->world);
 }
 
-void brDemo(Demo *d) {
-	SDL_DestroyTexture(d->circle);
-	SDL_DestroyTexture(d->box);
-	SDL_DestroyTexture(d->cannonBall);
-}
-
-void readInput(Input *input) {
+void read_input(struct input *input) {
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {	
 		if (event.type == SDL_KEYDOWN) {
@@ -160,59 +219,59 @@ unsigned int delayTime(const unsigned int goal,
 	return frame >= goal ? 0 : (goal - frame);
 }
 
-void stepWorld(World *w);
-void renderDemo(Demo *d);
+void step_world(struct world *w);
+void render_demo(struct demo *d);
 
-void loopDemo(Demo *d) {
+void loop_demo(struct demo *d) {
 	d->input.quit = false;
 	do {
-		const unsigned int startTick = SDL_GetTicks();
-		readInput(&d->input);
-		stepWorld(&d->world);
-		renderDemo(d);
-		const unsigned int endTick = SDL_GetTicks();
-		printf("FPS: %f\n", 1000.0f / (endTick - startTick));
-		SDL_Delay(delayTime(16, startTick, endTick));
+		const unsigned int start_tick = SDL_GetTicks();
+		read_input(&d->input);
+		step_world(&d->world);
+		render_demo(d);
+		const unsigned int end_tick = SDL_GetTicks();
+		printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
+		SDL_Delay(delayTime(16, start_tick, end_tick));
 		printf("x:%f y:%f\n", d->world.bodies[0].position.x, d->world.bodies[0].position.y);
 	} while (!d->input.quit);
 }
 
-static void generateCollisions(World *w);
-static void integrateForces(World *w);
-static void initializeCollisions(World *w);
-static void solveCollisions(World *w);
-static void integrateVelocities(World *w);
-static void correctPositions(World *w);
-static void resetCollisions(World *w);
+void generate_collisions(struct world *w);
+void integrate_forces(struct world *w);
+void initialize_collisions(struct world *w);
+void solve_collisions(struct world *w);
+void integrate_velocities(struct world *w);
+void correct_positions(struct world *w);
+void reset_collisions(struct world *w);
 
-void stepWorld(World *w) {
-	generateCollisions(w);
-	integrateForces(w);
-	initializeCollisions(w);
-	solveCollisions(w);
-	integrateVelocities(w);
-	correctPositions(w);
-	resetCollisions(w);
+void step_world(struct world *w) {
+	generate_collisions(w);
+	integrate_forces(w);
+	initialize_collisions(w);
+	solve_collisions(w);
+	integrate_velocities(w);
+	correct_positions(w);
+	reset_collisions(w);
 }
 
-static void generateCollisions(World *w) {
-	for (int i = 0; i < w->bodyCount; i++) {
-		const PFBody *iBody = w->bodies + i;
-		const bool iNearZero = mlNearZeroV2f(iBody->velocity);
-		const bool iNoMass = iBody->mass == 0;
+void generate_collisions(struct world *w) {
+	for (int i = 0; i < w->body_count; i++) {
+		const PFBody *i_body = &w->bodies[i];
+		const bool iNearZero = mlNearZeroV2f(i_body->velocity);
+		const bool iNoMass = i_body->mass == 0;
 
-		for (int j = i + 1; j < w->bodyCount; j++) {
-			const PFBody *jBody = w->bodies + j;
+		for (int j = i + 1; j < w->body_count; j++) {
+			const PFBody *j_body = &w->bodies[j];
 
-			if (iNoMass && jBody->mass == 0)
+			if (iNoMass && j_body->mass == 0)
 				continue;
-			if (iNearZero && mlNearZeroV2f(jBody->velocity))
+			if (iNearZero && mlNearZeroV2f(j_body->velocity))
 				continue;
 
-			KeysManifold *km = w->manifolds + w->manifoldCount;
-			if (pfSolveCollision(iBody, jBody, &km->manifold)) {
-				km->aKey = i;
-				km->bKey = j;
+			struct keys_manifold *km = &w->manifolds[w->manifoldCount];
+			if (pfSolveCollision(i_body, j_body, &km->manifold)) {
+				km->a_key = i;
+				km->b_key = j;
 				w->manifoldCount++;
 				if (w->manifoldCount == MAX_MANIFOLDS)
 					return;
@@ -221,79 +280,76 @@ static void generateCollisions(World *w) {
 	}
 }
 
-static void integrateForces(World *w) {
-	for (int i = 0; i < w->bodyCount; i++)
+void integrate_forces(struct world *w) {
+	for (int i = 0; i < w->body_count; i++)
 		pfIntegrateForce(w->dt, w->gravity, w->bodies + i);
 }
 
-static void initializeCollisions(World *w) {
+void initialize_collisions(struct world *w) {
 	for (int i = 0; i < w->manifoldCount; i++)
 		pfManifoldInitialize(
-			w->bodies + w->manifolds[i].aKey,
-			w->bodies + w->manifolds[i].bKey,
+			w->bodies + w->manifolds[i].a_key,
+			w->bodies + w->manifolds[i].b_key,
 			&w->manifolds[i].manifold
 		);
 }
 
-static void solveCollisions(World * w) {
+void solve_collisions(struct world *w) {
 	for (int it = 0; it < w->iterations; it++)
 		for (int i = 0; i < w->manifoldCount; i++) {
-			const KeysManifold *km = w->manifolds + i;
-			pfManifoldApplyImpulse(&km->manifold, w->bodies + km->aKey, w->bodies + km->bKey);
+			const struct keys_manifold *km = &w->manifolds[i];
+			pfManifoldApplyImpulse(&km->manifold, &w->bodies[km->a_key], &w->bodies[km->b_key]);
 		}
 }
 
-static void integrateVelocities(World *w) {
-	for (int i = 0; i < w->bodyCount; i++)
-		pfIntegrateVelocity(w->dt, w->gravity, w->bodies + i);
+void integrate_velocities(struct world *w) {
+	for (int i = 0; i < w->body_count; i++)
+		pfIntegrateVelocity(w->dt, w->gravity, &w->bodies[i]);
 }
 
-static void correctPositions(World *w) {
-	for (int i = 0; i < w->bodyCount; i++) {
-		const KeysManifold *km = w->manifolds + i;
-		pfPositionalCorrection(&km->manifold, w->bodies + km->aKey, w->bodies + km->bKey);
+void correct_positions(struct world *w) {
+	for (int i = 0; i < w->body_count; i++) {
+		const struct keys_manifold *km = &w->manifolds[i];
+		pfPositionalCorrection(&km->manifold, &w->bodies[km->a_key], &w->bodies[km->b_key]);
 	}
 }
 
-static void resetCollisions(World *w) {
-	for (int i = 0; i < w->bodyCount; i++)
+void reset_collisions(struct world *w) {
+	for (int i = 0; i < w->body_count; i++)
 		w->bodies[i].force = mlV2Zerof();
 	w->manifoldCount = 0;
 }
 
-void renderDemo(Demo *d) {
-	SDL_SetRenderDrawColor(d->ren, 0x00, 0x00, 0x00, 0xff);
-	SDL_RenderClear(d->ren);
+void render_demo(struct demo *d) {
+	SDL_SetRenderDrawColor(d->renderer, 0x00, 0x00, 0x00, 0xff);
+	SDL_RenderClear(d->renderer);
 
-	for (int i = 0; i < d->world.bodyCount; i++) {
-		const PFBody *a = d->world.bodies + i;
+	SDL_SetRenderDrawColor(d->renderer, 0xff, 0xff, 0xff, 0xff);
+	for (int i = 0; i < d->world.body_count; i++) {
+		const PFBody *a = &d->world.bodies[i];
 		switch (a->shape.tag) {
 		case PF_SH_RECT: {
 			const SDL_Rect rect = {
-				.x = a->position.x * 10, .y = a->position.y * 10,
-				.w = 10, .h = 10
+				.x = a->position.x - a->shape.radii.x, .y = a->position.y - a->shape.radii.y,
+				.w = a->shape.radii.x * 2, .h = a->shape.radii.y * 2 
 			};
-			SDL_RenderCopy(d->ren, d->box, NULL, &rect);
+			SDL_RenderDrawRect(d->renderer, &rect);
 			break;
 		}
-		case PF_SH_CIRCLE:
-			if (i == 0) {
-				const SDL_Rect rect = {
-					.x = a->position.x * 10, .y = a->position.y * 10,
-					.w = 10.0 * CANNON_BALL_RADIUS, .h = 10.0 * CANNON_BALL_RADIUS
-				};
-				SDL_RenderCopy(d->ren, d->cannonBall, NULL, &rect);
-			} else {
-				const SDL_Rect rect = {
-					.x = a->position.x * 10, .y = a->position.y * 10,
-					.w = 10, .h = 10
-				};
-				SDL_RenderCopy(d->ren, d->circle, NULL, &rect);
+		case PF_SH_CIRCLE: {
+			const int len = 17;
+			SDL_Point lines[len];
+			for (int i = 0; i < len; i++) {
+				const float theta = (float)i * 2.0f * M_PI / (float)(len - 1);
+				lines[i].x = (float)a->position.x + (float)a->shape.radius * cosf(theta);
+				lines[i].y = (float)a->position.y + (float)a->shape.radius * sinf(theta);
 			}
+			lines[len - 1] = lines[0];
+			SDL_RenderDrawLines(d->renderer, lines, len);
 			break;
-		default:
-			assert(false);
+		}
+		default: assert(false);
 		}
 	}
-	SDL_RenderPresent(d->ren);
+	SDL_RenderPresent(d->renderer);
 }

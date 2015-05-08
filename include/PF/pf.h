@@ -62,6 +62,7 @@ void pfManifoldInitialize(const PFBody * a, const PFBody * b, PFManifold * m);
 void pfPositionalCorrection(const PFManifold * m, PFBody * a, PFBody * b);
 void pfManifoldApplyImpulse(const PFManifold * m, PFBody * a, PFBody * b);
 
+void pfBodySetMass(const float mass, PFBody *a);
 void pfBodyEsque(const float density, const float restitution, PFBody * a);
 void pfRockEsque(PFBody * a);
 void pfWoodEsque(PFBody * a);

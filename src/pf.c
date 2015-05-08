@@ -100,14 +100,13 @@ bool pfRectToRect(const PFBody *a, const PFBody *b, MLV2f * normal, float * pene
 		return false;
 	} else if (mlAbsf(overlap.x) < mlAbsf(overlap.y)) {
 		*penetration = overlap.x;
-		normal->x = n.x < 0 ? -1 : 1;
-		normal->y = 0;
+		*normal = mlV2f(n.x < 0 ? -1 : 1, 0);
+		return true;
 	} else {
 		*penetration = overlap.y;
-		normal->x = 0;
-		normal->y = n.y < 0 ? -1 : 1;
+		*normal = mlV2f(0, n.y < 0 ? -1 : 1);
+		return true;
 	}
-	return true;
 }
 
 bool pfRectToCircle(const PFBody *a, const PFBody *b, MLV2f * normal, float * penetration) {
@@ -122,7 +121,7 @@ bool pfRectToCircle(const PFBody *a, const PFBody *b, MLV2f * normal, float * pe
 		a_.shape.radius = 0;
 		a_.position.x += out_lf ? -a->shape.radii.x : a->shape.radii.x;
 		a_.position.y += out_up ? -a->shape.radii.y : a->shape.radii.y;
-		return  pfCircleToCircle(&a_, b, normal, penetration);
+		return pfCircleToCircle(&a_, b, normal, penetration);
 	} else {
 		/* Treat as pfRectToRect collision */
 		PFBody b_ = *b;
@@ -136,7 +135,7 @@ bool pfCircleToCircle(const PFBody *a, const PFBody *b, MLV2f * normal, float * 
 	const MLV2f n = mlSubV2f(b->position, a->position);
 	const float dist_sq = mlSqLenV2f(n);
 	const float dist = mlSqrtf(dist_sq);
-	const float radius = a->shape.radius + a->shape.radius;
+	const float radius = a->shape.radius + b->shape.radius;
 	if (dist_sq >= radius * radius) {
 		return false;
 	} else if (dist == 0) {
@@ -219,9 +218,8 @@ void pfManifoldApplyImpulse(const PFManifold * m, PFBody *a, PFBody *b) {
 	rv = mlSubV2f(b->velocity, a->velocity);
 	const MLV2f t = mlNormalizeV2f(mlSubV2f(rv, mlMulV2ff(m->normal, mlDotV2f(rv, m->normal))));
 	const float jt = -mlDotV2f(rv,t) / inverseMassSum;
-	if (mlNearZerof(jt)) {
+	if (mlNearZerof(jt))
 		return;
-	}
 
 	const MLV2f tagentImpulse = mlMulV2ff(
 		t,
