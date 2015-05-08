@@ -1,0 +1,6 @@
+all:
+	cc demo.c -o demo -Wall -Werror -pedantic -std=c11 -ffast-math -g -O3 -lc -lm -lml -lpf `pkg-config --cflags --libs sdl2` -D_GNU_SOURCE
+clean:
+	rm demo
+gcw0:
+	mipsel-gcw0-linux-uclibc-cc demo.c -o demo -Wall -Werror -pedantic -std=c11 -ffast-math -g -O3 -lc -lm -lml -lpf `pkg-config --cflags --libs sdl2` -D_GNU_SOURCE

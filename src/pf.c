@@ -1,315 +1,316 @@
 #include "pf.h"
+#include <math.h>
 #include <assert.h>
 
-bool pfIntersect(const PFAABB a, const PFAABB b) {
+bool pf_intersect(const struct pf_aabb a, const struct pf_aabb b) {
 	return 
 		a.max.x >= b.min.x && a.min.x <= b.max.x &&
 		a.max.y >= b.min.y && a.min.y <= b.max.y; 
 }
 
-bool pfInside(const MLV2f a, const PFAABB b) {
+bool pf_inside(const v2f a, const struct pf_aabb b) {
 	return 
 		a.x >= b.min.x && a.x <= b.max.x &&
 		a.y >= b.min.y && a.y <= b.max.y; 
 }
 
-PFAABB pfRectToAABB(const PFBody *a);
-PFAABB pfCircleToAABB(const PFBody *a);
+struct pf_aabb pf_rect_to_aabb(const struct pf_body *a);
+struct pf_aabb pf_circle_to_aabb(const struct pf_body *a);
 
-PFAABB pfBodyToAABB(const PFBody *a) {
+struct pf_aabb pf_body_to_aabb(const struct pf_body *a) {
 	switch (a->shape.tag) {
-	case PF_SH_RECT: return pfRectToAABB(a);
-	case PF_SH_CIRCLE: return pfCircleToAABB(a);
+	case PF_SH_RECT: return pf_rect_to_aabb(a);
+	case PF_SH_CIRCLE: return pf_circle_to_aabb(a);
 	default: assert(false);
 	}
 }
 
-PFAABB pfRectToAABB(const PFBody *a) {
-	return (PFAABB) {
-		.min = mlSubV2f(a->position, a->shape.radii),
-		.max = mlAddV2f(a->position, a->shape.radii)
+struct pf_aabb pf_rect_to_aabb(const struct pf_body *a) {
+	return (struct pf_aabb) {
+		.min = subv2f(a->position, a->shape.radii),
+		.max = addv2f(a->position, a->shape.radii)
 	};
 }
 
-PFAABB pfCircleToAABB(const PFBody *a) {
-	return (PFAABB) {
-		.min = mlSubV2ff(a->position, a->shape.radius),
-		.max = mlDivV2ff(a->position, a->shape.radius)
+struct pf_aabb pf_circle_to_aabb(const struct pf_body *a) {
+	return (struct pf_aabb) {
+		.min = subv2fs(a->position, a->shape.radius),
+		.max = divv2fs(a->position, a->shape.radius)
 	};
 }
 
-bool pfTestRect(const PFAABB a, const PFBody *b);
-bool pfTestCircle(const PFAABB a, const PFBody *b);
+bool pf_test_rect(const struct pf_aabb a, const struct pf_body *b);
+bool pf_test_circle(const struct pf_aabb a, const struct pf_body *b);
 
-bool pfTestBody(const PFAABB a, const PFBody *b) {
+bool pf_test_body(const struct pf_aabb a, const struct pf_body *b) {
 	switch (b->shape.tag) {
-	case PF_SH_RECT: return pfTestRect(a, b);
-	case PF_SH_CIRCLE: return pfTestCircle(a, b);
+	case PF_SH_RECT: return pf_test_rect(a, b);
+	case PF_SH_CIRCLE: return pf_test_circle(a, b);
 	default: assert(false);
 	}
 }
 
-bool pfTestRect(const PFAABB a, const PFBody *b) {
-	return pfIntersect(a, pfRectToAABB(b));
+bool pf_test_rect(const struct pf_aabb a, const struct pf_body *b) {
+	return pf_intersect(a, pf_rect_to_aabb(b));
 }
 
-bool pfTestCircle(const PFAABB a, const PFBody *b) {
-	const bool inside = pfInside(b->position, a);
-	const MLV2f closest = mlClampV2f(a.min, a.max, b->position);
-	const MLV2f pos_diff = mlSubV2f(b->position, pfAABBPosition(a));
+bool pf_test_circle(const struct pf_aabb a, const struct pf_body *b) {
+	const bool inside = pf_inside(b->position, a);
+	const v2f closest = clampv2f(a.min, a.max, b->position);
+	const v2f pos_diff = subv2f(b->position, pf_aabb_position(a));
 	const float radius = b->shape.radius; 
-	const MLV2f normal = mlSubV2f(pos_diff, closest);
-	const float dist_sq = mlSqLenV2f(normal);
+	const v2f normal = subv2f(pos_diff, closest);
+	const float dist_sq = sqlenv2f(normal);
 	return inside || dist_sq <= (radius * radius);
 }
 
-bool pfBodyToBodySwap(const PFBody *a, const PFBody *b, MLV2f *normal, float *penetration);
-bool pfRectToRect(const PFBody *a, const PFBody *b, MLV2f *normal, float *penetration);
-bool pfRectToCircle(const PFBody *a, const PFBody *b, MLV2f *normal, float *penetration);
-bool pfCircleToCircle(const PFBody *a, const PFBody *b, MLV2f *normal, float *penetration);
+bool pf_body_to_body_swap(const struct pf_body *a, const struct pf_body *b, v2f *normal, float *penetration);
+bool pf_rect_to_rect(const struct pf_body *a, const struct pf_body *b, v2f *normal, float *penetration);
+bool pf_rect_to_circle(const struct pf_body *a, const struct pf_body *b, v2f *normal, float *penetration);
+bool pf_circle_to_circle(const struct pf_body *a, const struct pf_body *b, v2f *normal, float *penetration);
 
-bool pfBodyToBody(const PFBody *a, const PFBody *b, MLV2f *normal, float *penetration) {
+bool pf_body_to_body(const struct pf_body *a, const struct pf_body *b, v2f *normal, float *penetration) {
 	switch (a->shape.tag) {
 	case PF_SH_RECT:
 		switch (b->shape.tag) {
-		case PF_SH_RECT: return pfRectToRect(a, b, normal, penetration);
-		case PF_SH_CIRCLE: return pfRectToCircle(a, b, normal, penetration);
+		case PF_SH_RECT: return pf_rect_to_rect(a, b, normal, penetration);
+		case PF_SH_CIRCLE: return pf_rect_to_circle(a, b, normal, penetration);
 		default: assert(false);
 		}
 	case PF_SH_CIRCLE:
 		switch (b->shape.tag) {
-		case PF_SH_RECT: return pfBodyToBodySwap(a, b, normal, penetration);
-		case PF_SH_CIRCLE: return pfCircleToCircle(a, b, normal, penetration);
+		case PF_SH_RECT: return pf_body_to_body_swap(a, b, normal, penetration);
+		case PF_SH_CIRCLE: return pf_circle_to_circle(a, b, normal, penetration);
 		default: assert(false);
 		}
 	default: assert(false);
 	}
 }
 
-bool pfBodyToBodySwap(const PFBody *a, const PFBody *b, MLV2f *normal, float *penetration) {
-	bool test = pfBodyToBody(b, a, normal, penetration);
+bool pf_body_to_body_swap(const struct pf_body *a, const struct pf_body *b, v2f *normal, float *penetration) {
+	bool test = pf_body_to_body(b, a, normal, penetration);
 	if (test)
-		*normal = mlNegateV2f(*normal);
+		*normal = negv2f(*normal);
 	return test;
 }
 
-bool pfRectToRect(const PFBody *a, const PFBody *b, MLV2f * normal, float * penetration) {
-	const MLV2f n = mlSubV2f(b->position, a->position);
-	const MLV2f overlap = mlSubV2f(mlAddV2f(a->shape.radii, b->shape.radii), mlAbsV2f(n));
-	if (!pfIntersect(pfRectToAABB(a), pfRectToAABB(b))) {
+bool pf_rect_to_rect(const struct pf_body *a, const struct pf_body *b, v2f * normal, float * penetration) {
+	const v2f n = subv2f(b->position, a->position);
+	const v2f overlap = subv2f(addv2f(a->shape.radii, b->shape.radii), absv2f(n));
+	if (!pf_intersect(pf_rect_to_aabb(a), pf_rect_to_aabb(b))) {
 		return false;
-	} else if (mlAbsf(overlap.x) < mlAbsf(overlap.y)) {
+	} else if (fabsf(overlap.x) < fabsf(overlap.y)) {
 		*penetration = overlap.x;
-		*normal = mlV2f(n.x < 0 ? -1 : 1, 0);
+		*normal = mkv2f(n.x < 0 ? -1 : 1, 0);
 		return true;
 	} else {
 		*penetration = overlap.y;
-		*normal = mlV2f(0, n.y < 0 ? -1 : 1);
+		*normal = mkv2f(0, n.y < 0 ? -1 : 1);
 		return true;
 	}
 }
 
-bool pfRectToCircle(const PFBody *a, const PFBody *b, MLV2f * normal, float * penetration) {
+bool pf_rect_to_circle(const struct pf_body *a, const struct pf_body *b, v2f * normal, float * penetration) {
 	const bool out_lf = b->position.x < a->position.x - a->shape.radii.x;
 	const bool out_rt = b->position.x > a->position.x + a->shape.radii.x;
 	const bool out_up = b->position.y < a->position.y - a->shape.radii.y;
 	const bool out_dn = b->position.y > a->position.y + a->shape.radii.y;
 	if ((out_lf || out_rt) && (out_up || out_dn)) {
 		/* Treat as (circle/corner_point)_to_circle collision */
-		PFBody a_ = *a;
+		struct pf_body a_ = *a;
 		a_.shape.tag = PF_SH_CIRCLE;
 		a_.shape.radius = 0;
 		a_.position.x += out_lf ? -a->shape.radii.x : a->shape.radii.x;
 		a_.position.y += out_up ? -a->shape.radii.y : a->shape.radii.y;
-		return pfCircleToCircle(&a_, b, normal, penetration);
+		return pf_circle_to_circle(&a_, b, normal, penetration);
 	} else {
-		/* Treat as pfRectToRect collision */
-		PFBody b_ = *b;
+		/* Treat as pf_rect_to_rect collision */
+		struct pf_body b_ = *b;
 		b_.shape.tag = PF_SH_RECT;
-		b_.shape.radii = mlV2f(b->shape.radius, b->shape.radius);
-		return pfRectToRect(a, &b_, normal, penetration);
+		b_.shape.radii = mkv2f(b->shape.radius, b->shape.radius);
+		return pf_rect_to_rect(a, &b_, normal, penetration);
 	}
 }
 
-bool pfCircleToCircle(const PFBody *a, const PFBody *b, MLV2f * normal, float * penetration) {
-	const MLV2f n = mlSubV2f(b->position, a->position);
-	const float dist_sq = mlSqLenV2f(n);
-	const float dist = mlSqrtf(dist_sq);
+bool pf_circle_to_circle(const struct pf_body *a, const struct pf_body *b, v2f * normal, float * penetration) {
+	const v2f n = subv2f(b->position, a->position);
+	const float dist_sq = sqlenv2f(n);
+	const float dist = sqrtf(dist_sq);
 	const float radius = a->shape.radius + b->shape.radius;
 	if (dist_sq >= radius * radius) {
 		return false;
 	} else if (dist == 0) {
 		*penetration = a->shape.radius;
-		*normal = mlV2f(1,0);
+		*normal = mkv2f(1,0);
 	} else {
 		*penetration = radius - dist;
-		*normal = mlDivV2ff(n, dist);
+		*normal = divv2fs(n, dist);
 	}
 	return true;
 }
 
-inline MLV2f pfAABBPosition(const PFAABB a) {
-	return mlDivV2ff(mlAddV2f(a.min, a.max), 2);
+inline v2f pf_aabb_position(const struct pf_aabb a) {
+	return divv2fs(addv2f(a.min, a.max), 2);
 }
 
-bool pfSolveCollision(const PFBody *a, const PFBody *b, PFManifold * m) {
-	if (pfBodyToBody(a, b, &m->normal, &m->penetration)) {
-		m->e = a->restitution * b->restitution;
-		m->dynamicFriction = a->dynamicFriction * b->dynamicFriction;
-		m->staticFriction = a->staticFriction * b->staticFriction;
+bool pf_solve_collision(const struct pf_body *a, const struct pf_body *b, struct pf_manifold * m) {
+	if (pf_body_to_body(a, b, &m->normal, &m->penetration)) {
+		m->mixed_restitution = a->restitution * b->restitution;
+		m->dynamic_friction = a->dynamic_friction * b->dynamic_friction;
+		m->static_friction = a->static_friction * b->static_friction;
 		return true;
 	}
 	return false;
 }
 
-void pfIntegrateForce(const float dt, const MLV2f gravity, PFBody *a) {
-	if (!mlNearZerof(a->inverseMass)) {
-		const MLV2f velocity = mlMulV2ff(
-			mlAddV2f(mlMulV2ff(a->force, a->inverseMass), gravity),
+void pf_integrate_force(const float dt, const v2f gravity, struct pf_body *a) {
+	if (!nearzerof(a->inverse_mass)) {
+		const v2f velocity = mulv2fs(
+			addv2f(mulv2fs(a->force, a->inverse_mass), gravity),
 			dt / 2
 		);
-		a->velocity = mlAddV2f(a->velocity, velocity);
+		a->velocity = addv2f(a->velocity, velocity);
 	}
 }
 
-void pfIntegrateVelocity(const float dt, const MLV2f gravity, PFBody *a) {
-	if (!mlNearZerof(a->inverseMass)) {
-		const MLV2f position = mlMulV2ff(a->velocity, dt);
-		a->position = mlAddV2f(a->position, position);
-		pfIntegrateForce(dt, gravity, a);
+void pf_integrate_velocity(const float dt, const v2f gravity, struct pf_body *a) {
+	if (!nearzerof(a->inverse_mass)) {
+		const v2f position = mulv2fs(a->velocity, dt);
+		a->position = addv2f(a->position, position);
+		pf_integrate_force(dt, gravity, a);
 	}
 }
 
-void pfManifoldInitialize(const PFBody *a, const PFBody *b, PFManifold * m) {
-	m->e = a->restitution * b->restitution;
-	m->staticFriction = a->staticFriction * b->staticFriction;
-	m->dynamicFriction = a->dynamicFriction * b->dynamicFriction;
+void pf_manifold_initialize(const struct pf_body *a, const struct pf_body *b, struct pf_manifold * m) {
+	m->mixed_restitution = a->restitution * b->restitution;
+	m->static_friction = a->static_friction * b->static_friction;
+	m->dynamic_friction = a->dynamic_friction * b->dynamic_friction;
 }
 
-void pfPositionalCorrection(const PFManifold * m, PFBody *a, PFBody *b) {
+void pf_positional_correction(const struct pf_manifold * m, struct pf_body *a, struct pf_body *b) {
 	const float percent = 0.4;
 	const float slop = 0.05;
-	const MLV2f correction = mlMulV2ff(
+	const v2f correction = mulv2fs(
 		m->normal,
-		mlMaxf(0, (m->penetration - slop) / (a->inverseMass + b->inverseMass)) * percent
+		fmaxf(0, (m->penetration - slop) / (a->inverse_mass + b->inverse_mass)) * percent
 	);
-	a->position = mlSubV2f(a->position, mlMulV2ff(correction, a->inverseMass));
-	b->position = mlAddV2f(b->position, mlMulV2ff(correction, b->inverseMass));
+	a->position = subv2f(a->position, mulv2fs(correction, a->inverse_mass));
+	b->position = addv2f(b->position, mulv2fs(correction, b->inverse_mass));
 }
 
-void pfManifoldApplyImpulse(const PFManifold * m, PFBody *a, PFBody *b) {
-	const float inverseMassSum = a->inverseMass + b->inverseMass;
-	if (mlNearZerof(inverseMassSum)) {
-		a->velocity = mlV2Zerof();
-		b->velocity = mlV2Zerof();
+void pf_manifold_apply_impulse(const struct pf_manifold * m, struct pf_body *a, struct pf_body *b) {
+	const float inverse_massSum = a->inverse_mass + b->inverse_mass;
+	if (nearzerof(inverse_massSum)) {
+		a->velocity = mkv2f(0,0);
+		b->velocity = mkv2f(0,0);
 		return;
 	}
 	
-	MLV2f rv = mlSubV2f(b->velocity, a->velocity);
-	const float contactVelocity = mlDotV2f(rv, m->normal);
+	v2f rv = subv2f(b->velocity, a->velocity);
+	const float contactVelocity = dotv2f(rv, m->normal);
 	if (contactVelocity > 0)
 		return;
 
-	const float e = mlMinf(a->restitution, b->restitution);
-	const float j = (-(1 + e) * contactVelocity) / inverseMassSum;
-	const MLV2f impulse = mlMulV2ff(m->normal, j);
-	a->velocity = mlSubV2f(a->velocity, mlMulV2ff(impulse, a->inverseMass));
-	b->velocity = mlAddV2f(b->velocity, mlMulV2ff(impulse, b->inverseMass));
-	rv = mlSubV2f(b->velocity, a->velocity);
-	const MLV2f t = mlNormalizeV2f(mlSubV2f(rv, mlMulV2ff(m->normal, mlDotV2f(rv, m->normal))));
-	const float jt = -mlDotV2f(rv,t) / inverseMassSum;
-	if (mlNearZerof(jt))
+	const float e = fminf(a->restitution, b->restitution);
+	const float j = (-(1 + e) * contactVelocity) / inverse_massSum;
+	const v2f impulse = mulv2fs(m->normal, j);
+	a->velocity = subv2f(a->velocity, mulv2fs(impulse, a->inverse_mass));
+	b->velocity = addv2f(b->velocity, mulv2fs(impulse, b->inverse_mass));
+	rv = subv2f(b->velocity, a->velocity);
+	const v2f t = normv2f(subv2f(rv, mulv2fs(m->normal, dotv2f(rv, m->normal))));
+	const float jt = -dotv2f(rv,t) / inverse_massSum;
+	if (nearzerof(jt))
 		return;
 
-	const MLV2f tagentImpulse = mlMulV2ff(
+	const v2f tagentImpulse = mulv2fs(
 		t,
-		mlAbsf(jt) < (j * m->staticFriction) ? jt : (-j * m->dynamicFriction)
+		fabsf(jt) < (j * m->static_friction) ? jt : (-j * m->dynamic_friction)
 	);
-	a->velocity = mlSubV2f(a->velocity, mlMulV2ff(tagentImpulse, a->inverseMass));
-	b->velocity = mlAddV2f(b->velocity, mlMulV2ff(tagentImpulse, b->inverseMass));
+	a->velocity = subv2f(a->velocity, mulv2fs(tagentImpulse, a->inverse_mass));
+	b->velocity = addv2f(b->velocity, mulv2fs(tagentImpulse, b->inverse_mass));
 }
 
-void pfBodySetMass(const float mass, PFBody *a) {
+void pf_body_set_mass(const float mass, struct pf_body *a) {
 	a->mass = mass;
-	a->inverseMass = mlRecipNoInff(mass);
+	a->inverse_mass = recipinff(mass);
 }
 
-float pfMassFromDensity(const float density, const PFShape shape) {
+float pf_mass_from_density(const float density, const struct pf_shape shape) {
 	switch (shape.tag) {
 	case PF_SH_RECT: return density * shape.radii.x * shape.radii.y;
-	case PF_SH_CIRCLE: return density * mlPif() * shape.radius * shape.radius;
+	case PF_SH_CIRCLE: return density * M_PI * shape.radius * shape.radius;
 	default: assert(false);
 	}
 }
 
-void pfBodyEsque(const float density, const float restitution, PFBody *a) {
-	pfBodySetMass(pfMassFromDensity(density, a->shape), a);
+void pf_body_esque(const float density, const float restitution, struct pf_body *a) {
+	pf_body_set_mass(pf_mass_from_density(density, a->shape), a);
 	a->restitution = restitution;
 }
 
-void pfRockEsque(PFBody *a) {
-	pfBodyEsque(0.6, 0.1, a);
+void pf_rock_esque(struct pf_body *a) {
+	pf_body_esque(0.6, 0.1, a);
 }
 
-void pfWoodEsque(PFBody *a) {
-	pfBodyEsque(0.3, 0.2, a);
+void pf_wood_esque(struct pf_body *a) {
+	pf_body_esque(0.3, 0.2, a);
 }
 
-void pfMetalEsque(PFBody *a) {
-	pfBodyEsque(1.2, 0.05, a);
+void pf_metal_esque(struct pf_body *a) {
+	pf_body_esque(1.2, 0.05, a);
 }
 
-void pfBouncyBallEsque(PFBody *a) {
-	pfBodyEsque(0.3, 0.8, a);
+void pf_bouncy_ball_esque(struct pf_body *a) {
+	pf_body_esque(0.3, 0.8, a);
 }
 
-void pfSuperBallEsque(PFBody *a) {
-	pfBodyEsque(0.3, 0.95, a);
+void pf_super_ball_esque(struct pf_body *a) {
+	pf_body_esque(0.3, 0.95, a);
 }
 
-void pfPillowEsque(PFBody *a) {
-	pfBodyEsque(0.1, 0.2, a);
+void pf_pillow_esque(struct pf_body *a) {
+	pf_body_esque(0.1, 0.2, a);
 }
 
-void pfStaticEsque(PFBody *a) {
-	pfBodyEsque(0, 0.4, a);
+void pf_static_esque(struct pf_body *a) {
+	pf_body_esque(0, 0.4, a);
 }
 
-PFBody pfBody() {
-	return (PFBody) {
+struct pf_body pf_make_body() {
+	return (struct pf_body) {
 		.mode = PF_BM_DYNAMIC,
-		.shape = (PFShape) { 
+		.shape = (struct pf_shape) { 
 				.tag = PF_SH_CIRCLE,
 				.radius = 0
 			},
-		.position = mlV2Zerof(),
-		.velocity = mlV2Zerof(),
-		.force = mlV2Zerof(),
+		.position = mkv2f(0,0),
+		.velocity = mkv2f(0,0),
+		.force = mkv2f(0,0),
 		.mass = 1,
-		.inverseMass = 1,
-		.staticFriction = 0.5,
-		.dynamicFriction = 0.5,
+		.inverse_mass = 1,
+		.static_friction = 0.5,
+		.dynamic_friction = 0.5,
 		.restitution = 0.5,
 	};
 }
 
-PFShape pfCircle(const float radius) {
-	return (PFShape) {
+struct pf_shape pf_circle(const float radius) {
+	return (struct pf_shape) {
 		.tag = PF_SH_CIRCLE,
 		.radius = radius,
 	};
 }
 
-PFShape pfBox(const float side) {
-	return (PFShape) {
+struct pf_shape pf_box(const float side) {
+	return (struct pf_shape) {
 		.tag = PF_SH_RECT,
-		.radii = mlV2Fillf(side),
+		.radii = mkv2f(side, side),
 	};
 }
 
-PFShape pfRect(const float w, const float h) {
-	return (PFShape) {
+struct pf_shape pf_rect(const float w, const float h) {
+	return (struct pf_shape) {
 		.tag = PF_SH_RECT,
-		.radii = mlV2f(w, h),
+		.radii = mkv2f(w, h),
 	};
 }
