@@ -34,6 +34,7 @@ struct pf_body {
 	v2f position;
 	v2f velocity;
 	v2f force;
+	v2f gravity;
 	float mass;
 	float inverse_mass;
 	float static_friction;
@@ -58,9 +59,8 @@ bool pf_body_to_body(const struct pf_body *a, const struct pf_body *b,
 		     v2f *normal, float *penetration);
 bool pf_solve_collision(const struct pf_body *a, const struct pf_body *b,
 			struct pf_manifold *m);
-void pf_integrate_force(const float dt, const v2f gravity, struct pf_body *a);
-void pf_integrate_velocity(const float dt, const v2f gravity,
-			   struct pf_body *a);
+void pf_integrate_force(const float dt, struct pf_body *a);
+void pf_integrate_velocity(const float dt, struct pf_body *a);
 void pf_manifold_initialize(const struct pf_body *a, const struct pf_body *b,
 			    struct pf_manifold *m);
 void pf_positional_correction(const struct pf_manifold *m, struct pf_body *a,
@@ -79,7 +79,7 @@ void pf_super_ball_esque(struct pf_body *a);
 void pf_pillow_esque(struct pf_body *a);
 void pf_static_esque(struct pf_body *a);
 
-struct pf_body pf_make_body();
+struct pf_body _pf_body();
 struct pf_shape pf_circle(const float radius);
 struct pf_shape pf_box(const float side);
 struct pf_shape pf_rect(const float w, const float h);
