@@ -22,6 +22,7 @@ struct keys_manifold {
 #define CANNON_BALL_RADIUS 1.5
 
 struct world {
+	int supported[MAX_BODIES];
 	struct pf_body bodies[MAX_BODIES];
 	int body_count;
 	struct keys_manifold manifolds[MAX_MANIFOLDS];
@@ -68,6 +69,7 @@ void make_world(struct world *w) {
 	w->manifoldCount = 0;
 	w->dt = 1.0 / 60.0;
 	w->iterations = 10;
+	memset(w->supported, -1, sizeof(int));
 
 	// Large circle
 	{
@@ -75,7 +77,7 @@ void make_world(struct world *w) {
 		w->body_count++;
 		*a = _pf_body();
 		a->shape = pf_circle(3);
-		a->gravity = _v2f(9.5, -9.8);
+		//a->gravity = _v2f(9.5, -9.8);
 		a->position = _v2f(4,5);
 		pf_bouncy_ball_esque(a);
 	}
@@ -86,7 +88,7 @@ void make_world(struct world *w) {
 		w->body_count++;
 		*a = _pf_body();
 		a->shape = pf_circle(0.5);
-		a->gravity = _v2f(10,3);
+		//a->gravity = _v2f(10,3);
 		a->position = _v2f(2,3);
 		pf_super_ball_esque(a);
 	}
@@ -96,7 +98,7 @@ void make_world(struct world *w) {
 		struct pf_body *a = &w->bodies[w->body_count];
 		w->body_count++;
 		*a = _pf_body();
-		a->gravity = _v2f(-10, 6);
+		//a->gravity = _v2f(-10, 6);
 		a->shape = pf_rect(2,3);
 		a->position = _v2f(14,4);
 		pf_pillow_esque(a);
@@ -109,7 +111,7 @@ void make_world(struct world *w) {
 		*a = _pf_body();
 		pf_body_set_mass(0, a);
 		a->shape = pf_rect(7,1);
-		a->position = _v2f(10,20);
+		a->position = _v2f(8,16.25);
 	}
 
 	// Walls
@@ -208,7 +210,15 @@ void step_world(struct world *w) {
 	reset_collisions(w);
 }
 
+float normf(float x) {
+	return nearzerof(x) ? 0 : (x > 0 ? 1 : -1);
+}
+
 void generate_collisions(struct world *w) {
+	for (int i = 0; i < w->body_count; i++) {
+		w->supported[i] = -1;
+	}
+
 	for (int i = 0; i < w->body_count; i++) {
 		const struct pf_body *i_body = &w->bodies[i];
 		const bool i_near_zero = nearzerov2f(i_body->velocity);
@@ -216,11 +226,13 @@ void generate_collisions(struct world *w) {
 
 		for (int j = i + 1; j < w->body_count; j++) {
 			const struct pf_body *j_body = &w->bodies[j];
+			const bool j_near_zero = nearzerov2f(j_body->velocity);
+			const bool j_no_mass = j_body->mass == 0;
 
 			if (i_no_mass && j_body->mass == 0) {
 				continue;
 			}
-			if (i_near_zero && nearzerov2f(j_body->velocity)) {
+			if (i_near_zero && j_near_zero) {
 				continue;
 			}
 
@@ -229,6 +241,46 @@ void generate_collisions(struct world *w) {
 			if (pf_solve_collision(i_body, j_body, &km->manifold)) {
 				km->a_key = i;
 				km->b_key = j;
+				// Try support connection
+				if (i_no_mass && !j_no_mass &&
+				    i_body->shape.tag == PF_SH_RECT &&
+				    !eqf(j_body->gravity.x, j_body->gravity.y)
+				    ) {
+					if (fabsf(j_body->gravity.x) >
+					    fabsf(j_body->gravity.y)) {
+						if (normf(j_body->gravity.x) ==
+						    normf(i_body->position.x -
+							  j_body->position.x)) {
+							w->supported[j] = i;
+						}
+					} else {
+						if (normf(j_body->gravity.y) ==
+						    normf(i_body->position.y -
+							  j_body->position.y)) {
+							w->supported[j] = i;
+						}
+					}
+				}
+				if (j_no_mass && !i_no_mass &&
+				    j_body->shape.tag == PF_SH_RECT &&
+				    !eqf(i_body->gravity.x, i_body->gravity.y)
+				    ) {
+					if (fabsf(i_body->gravity.x) >
+					    fabsf(i_body->gravity.y)) {
+						if (normf(i_body->gravity.x) ==
+						    normf(j_body->position.x -
+							  i_body->position.x)) {
+							w->supported[i] = j;
+						}
+					} else {
+						if (normf(i_body->gravity.y) ==
+						    normf(j_body->position.y -
+							  i_body->position.y)) {
+							w->supported[i] = j;
+						}
+					}
+				}
+				//
 				w->manifoldCount++;
 				if (w->manifoldCount == MAX_MANIFOLDS) {
 					return;
@@ -240,6 +292,9 @@ void generate_collisions(struct world *w) {
 
 void integrate_forces(struct world *w) {
 	for (int i = 0; i < w->body_count; i++) {
+		if (i == 3) {
+			w->bodies[i].force = _v2f(1,0);
+		}
 		pf_integrate_force(w->dt, w->bodies + i);
 	}
 }
@@ -322,6 +377,11 @@ void render_demo(struct demo *d) {
 		}
 		default: assert(false);
 		}
+		//
+		if (d->world.supported[i] != -1) {
+			printf("%d on %d, ", i, d->world.supported[i]);
+		}
 	}
+	putchar('\n');
 	SDL_RenderPresent(d->renderer);
 }

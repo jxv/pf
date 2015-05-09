@@ -185,6 +185,10 @@ void pf_integrate_force(const float dt, struct pf_body *a) {
 			dt / 2
 		);
 		a->velocity = addv2f(a->velocity, velocity);
+	} else {
+		// Allows moving static bodies
+		a->velocity = mulv2fs(a->force, dt);
+		a->position = addv2f(a->velocity, a->position);
 	}
 }
 
