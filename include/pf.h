@@ -33,6 +33,7 @@ struct pf_body {
 	struct pf_shape shape;
 	v2f position;
 	v2f velocity;
+	v2f parent_velocity;
 	v2f force;
 	v2f gravity;
 	float mass;

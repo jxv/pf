@@ -22,11 +22,12 @@ struct keys_manifold {
 #define CANNON_BALL_RADIUS 1.5
 
 struct world {
+	int prev_supported[MAX_BODIES];
 	int supported[MAX_BODIES];
 	struct pf_body bodies[MAX_BODIES];
-	int body_count;
+	int body_num;
 	struct keys_manifold manifolds[MAX_MANIFOLDS];
-	int manifoldCount;
+	int manifold_num;
 	float dt;
 	int iterations;
 };
@@ -65,16 +66,17 @@ int main() {
 }
 
 void make_world(struct world *w) {
-	w->body_count = 0;
-	w->manifoldCount = 0;
+	w->body_num = 0;
+	w->manifold_num = 0;
 	w->dt = 1.0 / 60.0;
 	w->iterations = 10;
+	memset(w->prev_supported, -1, sizeof(int));
 	memset(w->supported, -1, sizeof(int));
 
 	// Large circle
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		a->shape = pf_circle(3);
 		//a->gravity = _v2f(9.5, -9.8);
@@ -84,8 +86,8 @@ void make_world(struct world *w) {
 
 	// Small circle
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		a->shape = pf_circle(0.5);
 		//a->gravity = _v2f(10,3);
@@ -95,8 +97,8 @@ void make_world(struct world *w) {
 
 	// Rectangle
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		//a->gravity = _v2f(-10, 6);
 		a->shape = pf_rect(2,3);
@@ -106,8 +108,8 @@ void make_world(struct world *w) {
 
 	// Platform
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		pf_body_set_mass(0, a);
 		a->shape = pf_rect(7,1);
@@ -117,8 +119,8 @@ void make_world(struct world *w) {
 	// Walls
 	// Top
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		pf_body_set_mass(0, a);
 		a->shape = pf_rect(32,0.5);
@@ -126,8 +128,8 @@ void make_world(struct world *w) {
 	}
 	// Bottom
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		pf_body_set_mass(0, a);
 		a->shape = pf_rect(32,0.5);
@@ -135,8 +137,8 @@ void make_world(struct world *w) {
 	}
 	// Left
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		pf_body_set_mass(0, a);
 		a->shape = pf_rect(0.5,24);
@@ -144,8 +146,8 @@ void make_world(struct world *w) {
 	}
 	// Right
 	{
-		struct pf_body *a = &w->bodies[w->body_count];
-		w->body_count++;
+		struct pf_body *a = &w->bodies[w->body_num];
+		w->body_num++;
 		*a = _pf_body();
 		pf_body_set_mass(0, a);
 		a->shape = pf_rect(0.5,24);
@@ -215,16 +217,17 @@ float normf(float x) {
 }
 
 void generate_collisions(struct world *w) {
-	for (int i = 0; i < w->body_count; i++) {
+	for (int i = 0; i < w->body_num; i++) {
+		w->prev_supported[i] = w->supported[i];
 		w->supported[i] = -1;
 	}
 
-	for (int i = 0; i < w->body_count; i++) {
+	for (int i = 0; i < w->body_num; i++) {
 		const struct pf_body *i_body = &w->bodies[i];
 		const bool i_near_zero = nearzerov2f(i_body->velocity);
 		const bool i_no_mass = i_body->mass == 0;
 
-		for (int j = i + 1; j < w->body_count; j++) {
+		for (int j = i + 1; j < w->body_num; j++) {
 			const struct pf_body *j_body = &w->bodies[j];
 			const bool j_near_zero = nearzerov2f(j_body->velocity);
 			const bool j_no_mass = j_body->mass == 0;
@@ -237,7 +240,7 @@ void generate_collisions(struct world *w) {
 			}
 
 			struct keys_manifold *km =
-				&w->manifolds[w->manifoldCount];
+				&w->manifolds[w->manifold_num];
 			if (pf_solve_collision(i_body, j_body, &km->manifold)) {
 				km->a_key = i;
 				km->b_key = j;
@@ -281,8 +284,8 @@ void generate_collisions(struct world *w) {
 					}
 				}
 				//
-				w->manifoldCount++;
-				if (w->manifoldCount == MAX_MANIFOLDS) {
+				w->manifold_num++;
+				if (w->manifold_num == MAX_MANIFOLDS) {
 					return;
 				}
 			}
@@ -291,16 +294,23 @@ void generate_collisions(struct world *w) {
 }
 
 void integrate_forces(struct world *w) {
-	for (int i = 0; i < w->body_count; i++) {
-		if (i == 3) {
-			w->bodies[i].force = _v2f(1,0);
+	w->bodies[3].force = _v2f(1,0);
+	for (int i = 0; i < w->body_num; i++) {
+		const int j = w->supported[i];
+		if (w->supported[i] != -1 &&
+		    w->supported[i] == w->prev_supported[i]) {
+			printf("%d on %d (%f,%f)\n", i, j, w->bodies[j].force.x,
+			       w->bodies[j].force.y);
+			w->bodies[i].parent_velocity = w->bodies[j].force;
 		}
+	}
+	for (int i = 0; i < w->body_num; i++) {
 		pf_integrate_force(w->dt, w->bodies + i);
 	}
 }
 
 void initialize_collisions(struct world *w) {
-	for (int i = 0; i < w->manifoldCount; i++) {
+	for (int i = 0; i < w->manifold_num; i++) {
 		pf_manifold_initialize(
 			w->bodies + w->manifolds[i].a_key,
 			w->bodies + w->manifolds[i].b_key,
@@ -311,7 +321,7 @@ void initialize_collisions(struct world *w) {
 
 void solve_collisions(struct world *w) {
 	for (int it = 0; it < w->iterations; it++) {
-		for (int i = 0; i < w->manifoldCount; i++) {
+		for (int i = 0; i < w->manifold_num; i++) {
 			const struct keys_manifold *km = &w->manifolds[i];
 			pf_manifold_apply_impulse(&km->manifold,
 						  &w->bodies[km->a_key],
@@ -321,13 +331,13 @@ void solve_collisions(struct world *w) {
 }
 
 void integrate_velocities(struct world *w) {
-	for (int i = 0; i < w->body_count; i++) {
+	for (int i = 0; i < w->body_num; i++) {
 		pf_integrate_velocity(w->dt, &w->bodies[i]);
 	}
 }
 
 void correct_positions(struct world *w) {
-	for (int i = 0; i < w->body_count; i++) {
+	for (int i = 0; i < w->body_num; i++) {
 		const struct keys_manifold *km = &w->manifolds[i];
 		pf_positional_correction(&km->manifold, &w->bodies[km->a_key],
 					 &w->bodies[km->b_key]);
@@ -335,17 +345,18 @@ void correct_positions(struct world *w) {
 }
 
 void reset_collisions(struct world *w) {
-	for (int i = 0; i < w->body_count; i++) {
+	for (int i = 0; i < w->body_num; i++) {
 		w->bodies[i].force = _v2f(0,0);
+		w->bodies[i].parent_velocity = _v2f(0,0);
 	}
-	w->manifoldCount = 0;
+	w->manifold_num = 0;
 }
 
 void render_demo(struct demo *d) {
 	SDL_SetRenderDrawColor(d->renderer, 0x00, 0x00, 0x00, 0xff);
 	SDL_RenderClear(d->renderer);
 	SDL_SetRenderDrawColor(d->renderer, 0xff, 0xff, 0xff, 0xff);
-	for (int i = 0; i < d->world.body_count; i++) {
+	for (int i = 0; i < d->world.body_num; i++) {
 		const struct pf_body *a = &d->world.bodies[i];
 		switch (a->shape.tag) {
 		case PF_SH_RECT: {
@@ -376,10 +387,6 @@ void render_demo(struct demo *d) {
 			break;
 		}
 		default: assert(false);
-		}
-		//
-		if (d->world.supported[i] != -1) {
-			printf("%d on %d, ", i, d->world.supported[i]);
 		}
 	}
 	putchar('\n');

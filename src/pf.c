@@ -196,6 +196,7 @@ void pf_integrate_velocity(const float dt, struct pf_body *a) {
 	if (!nearzerof(a->inverse_mass)) {
 		const v2f position = mulv2fs(a->velocity, dt);
 		a->position = addv2f(a->position, position);
+		a->position = addv2f(a->position, mulv2fs(a->parent_velocity, dt));
 		pf_integrate_force(dt, a);
 	}
 }
@@ -310,6 +311,7 @@ struct pf_body _pf_body() {
 			},
 		.position = _v2f(0,0),
 		.velocity = _v2f(0,0),
+		.parent_velocity = _v2f(0,0),
 		.force = _v2f(0,0),
 		.gravity = _v2f(0,9.8),
 		.mass = 1,
