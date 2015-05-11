@@ -200,6 +200,7 @@ void generate_collisions(struct world *w);
 void integrate_forces(struct world *w);
 void initialize_collisions(struct world *w);
 void solve_collisions(struct world *w);
+void cap_velocities(struct world *w);
 void integrate_velocities(struct world *w);
 void correct_positions(struct world *w);
 void reset_collisions(struct world *w);
@@ -209,6 +210,7 @@ void step_world(struct world *w) {
 	integrate_forces(w);
 	initialize_collisions(w);
 	solve_collisions(w);
+	cap_velocities(w);
 	integrate_velocities(w);
 	correct_positions(w);
 	reset_collisions(w);
@@ -348,6 +350,14 @@ void solve_collisions(struct world *w) {
 						  &w->bodies[km->a_key],
 						  &w->bodies[km->b_key]);
 		}
+	}
+}
+
+void cap_velocities(struct world *w) {
+	for (int i = 0; i < w->body_num; i++) {
+		w->bodies[i].velocity = clampv2f(_v2f(-300,-300),
+						 _v2f(300,300),
+						 w->bodies[i].velocity);
 	}
 }
 
