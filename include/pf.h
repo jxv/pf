@@ -36,6 +36,7 @@ struct pf_body {
 	v2f parent_velocity;
 	v2f force;
 	v2f gravity;
+	bool enable_gravity;
 	float mass;
 	float inverse_mass;
 	float static_friction;

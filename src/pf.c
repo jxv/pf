@@ -170,7 +170,12 @@ inline v2f pf_aabb_position(const struct pf_aabb a) {
 bool pf_solve_collision(const struct pf_body *a, const struct pf_body *b,
 			struct pf_manifold *m) {
 	if (pf_body_to_body(a, b, &m->normal, &m->penetration)) {
-		m->mixed_restitution = a->restitution *b->restitution;
+		// /*
+		if (fabsf(m->penetration) < 0.0001) {
+			return false;
+		}
+		// */
+		m->mixed_restitution = a->restitution * b->restitution;
 		m->dynamic_friction = a->dynamic_friction * b->dynamic_friction;
 		m->static_friction = a->static_friction * b->static_friction;
 		return true;
@@ -181,7 +186,8 @@ bool pf_solve_collision(const struct pf_body *a, const struct pf_body *b,
 void pf_integrate_force(const float dt, struct pf_body *a) {
 	if (!nearzerof(a->inverse_mass)) {
 		const v2f velocity = mulv2fs(
-			addv2f(mulv2fs(a->force, a->inverse_mass), a->gravity),
+			addv2f(mulv2fs(a->force, a->inverse_mass),
+			       a->enable_gravity ? a->gravity : _v2f(0,0)),
 			dt / 2
 		);
 		a->velocity = addv2f(a->velocity, velocity);
@@ -262,8 +268,8 @@ void pf_body_set_mass(const float mass, struct pf_body *a) {
 
 float pf_mass_from_density(const float density, const struct pf_shape shape) {
 	switch (shape.tag) {
-	case PF_SH_RECT: return density *shape.radii.x *shape.radii.y;
-	case PF_SH_CIRCLE: return density *M_PI *shape.radius *shape.radius;
+	case PF_SH_RECT: return density * shape.radii.x * shape.radii.y;
+	case PF_SH_CIRCLE: return density * M_PI *shape.radius *shape.radius;
 	default: assert(false);
 	}
 }
@@ -314,10 +320,11 @@ struct pf_body _pf_body() {
 		.parent_velocity = _v2f(0,0),
 		.force = _v2f(0,0),
 		.gravity = _v2f(0,9.8),
+		.enable_gravity = true,
 		.mass = 1,
 		.inverse_mass = 1,
-		.static_friction = 0.5,
-		.dynamic_friction = 0.5,
+		.static_friction = 0.9,
+		.dynamic_friction = 0.7,
 		.restitution = 0.5,
 	};
 }

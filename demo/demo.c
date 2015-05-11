@@ -22,8 +22,9 @@ struct keys_manifold {
 #define CANNON_BALL_RADIUS 1.5
 
 struct world {
-	int prev_supported[MAX_BODIES];
 	int supported[MAX_BODIES];
+	int supported_pend[MAX_BODIES];
+	int supported_max_pend;
 	struct pf_body bodies[MAX_BODIES];
 	int body_num;
 	struct keys_manifold manifolds[MAX_MANIFOLDS];
@@ -70,8 +71,9 @@ void make_world(struct world *w) {
 	w->manifold_num = 0;
 	w->dt = 1.0 / 60.0;
 	w->iterations = 10;
-	memset(w->prev_supported, -1, sizeof(int));
 	memset(w->supported, -1, sizeof(int));
+	memset(w->supported_pend, 0, sizeof(int));
+	w->supported_max_pend = 10;
 
 	// Large circle
 	{
@@ -218,8 +220,24 @@ float normf(float x) {
 
 void generate_collisions(struct world *w) {
 	for (int i = 0; i < w->body_num; i++) {
-		w->prev_supported[i] = w->supported[i];
-		w->supported[i] = -1;
+		if (w->supported_pend[i] > w->supported_max_pend) {
+			w->supported_pend[i] = w->supported_max_pend;
+		}
+		if (w->supported[i] != -1 && w->supported_pend[i] > 0) {
+			w->bodies[i].enable_gravity = false;
+			w->supported_pend[i]--;
+		}
+		if (w->supported_pend[i] <= 0) {
+			w->supported[i] = -1;
+			w->supported_pend[i] = 0;
+			w->bodies[i].enable_gravity = true;
+		}
+		/*
+		if (w->prev_supported[i] != w->supported[i]) {
+			w->prev_supported[i] = w->supported[i];
+			w->supported[i] = -1;
+		}
+		*/
 	}
 
 	for (int i = 0; i < w->body_num; i++) {
@@ -254,12 +272,14 @@ void generate_collisions(struct world *w) {
 						if (normf(j_body->gravity.x) ==
 						    normf(i_body->position.x -
 							  j_body->position.x)) {
+							w->supported_pend[j]+=10;
 							w->supported[j] = i;
 						}
 					} else {
 						if (normf(j_body->gravity.y) ==
 						    normf(i_body->position.y -
 							  j_body->position.y)) {
+							w->supported_pend[j]+=10;
 							w->supported[j] = i;
 						}
 					}
@@ -273,12 +293,14 @@ void generate_collisions(struct world *w) {
 						if (normf(i_body->gravity.x) ==
 						    normf(j_body->position.x -
 							  i_body->position.x)) {
+							w->supported_pend[i]+=10;
 							w->supported[i] = j;
 						}
 					} else {
 						if (normf(i_body->gravity.y) ==
 						    normf(j_body->position.y -
 							  i_body->position.y)) {
+							w->supported_pend[i]+=10;
 							w->supported[i] = j;
 						}
 					}
@@ -297,8 +319,7 @@ void integrate_forces(struct world *w) {
 	w->bodies[3].force = _v2f(1,0);
 	for (int i = 0; i < w->body_num; i++) {
 		const int j = w->supported[i];
-		if (w->supported[i] != -1 &&
-		    w->supported[i] == w->prev_supported[i]) {
+		if (w->supported[i] != -1 && w->supported_pend[i] > 0) {
 			printf("%d on %d (%f,%f)\n", i, j, w->bodies[j].force.x,
 			       w->bodies[j].force.y);
 			w->bodies[i].parent_velocity = w->bodies[j].force;
