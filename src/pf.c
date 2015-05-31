@@ -34,8 +34,8 @@ struct pf_aabb pf_rect_to_aabb(const struct pf_body *a) {
 
 struct pf_aabb pf_circle_to_aabb(const struct pf_body *a) {
 	return (struct pf_aabb) {
-		.min = subv2fs(a->position, a->shape.radius),
-		.max = divv2fs(a->position, a->shape.radius)
+		.min = subv2nf(a->position, a->shape.radius),
+		.max = divv2nf(a->position, a->shape.radius)
 	};
 }
 
@@ -158,13 +158,13 @@ bool pf_circle_to_circle(const struct pf_body *a, const struct pf_body *b,
 		*normal = _v2f(1,0);
 	} else {
 		*penetration = radius - dist;
-		*normal = divv2fs(n, dist);
+		*normal = divv2nf(n, dist);
 	}
 	return true;
 }
 
 inline v2f pf_aabb_position(const struct pf_aabb a) {
-	return divv2fs(addv2f(a.min, a.max), 2);
+	return divv2nf(addv2f(a.min, a.max), 2);
 }
 
 bool pf_solve_collision(const struct pf_body *a, const struct pf_body *b,
@@ -185,24 +185,24 @@ bool pf_solve_collision(const struct pf_body *a, const struct pf_body *b,
 
 void pf_integrate_force(const float dt, struct pf_body *a) {
 	if (!nearzerof(a->inverse_mass)) {
-		const v2f velocity = mulv2fs(
-			addv2f(mulv2fs(a->force, a->inverse_mass),
+		const v2f velocity = mulv2nf(
+			addv2f(mulv2nf(a->force, a->inverse_mass),
 			       a->enable_gravity ? a->gravity : _v2f(0,0)),
 			dt / 2
 		);
 		a->velocity = addv2f(a->velocity, velocity);
 	} else {
 		// Allows moving static bodies
-		a->velocity = mulv2fs(a->force, dt);
+		a->velocity = mulv2nf(a->force, dt);
 		a->position = addv2f(a->velocity, a->position);
 	}
 }
 
 void pf_integrate_velocity(const float dt, struct pf_body *a) {
 	if (!nearzerof(a->inverse_mass)) {
-		const v2f position = mulv2fs(a->velocity, dt);
+		const v2f position = mulv2nf(a->velocity, dt);
 		a->position = addv2f(a->position, position);
-		a->position = addv2f(a->position, mulv2fs(a->parent_velocity, dt));
+		a->position = addv2f(a->position, mulv2nf(a->parent_velocity, dt));
 		pf_integrate_force(dt, a);
 	}
 }
@@ -220,9 +220,9 @@ void pf_positional_correction(const struct pf_manifold *m, struct pf_body *a,
 	const float slop = 0.05;
 	const float adjust = (m->penetration - slop) /
 			     (a->inverse_mass + b->inverse_mass);
-	const v2f correction = mulv2fs(m->normal, fmaxf(0, adjust) * percent);
-	a->position = subv2f(a->position, mulv2fs(correction, a->inverse_mass));
-	b->position = addv2f(b->position, mulv2fs(correction, b->inverse_mass));
+	const v2f correction = mulv2nf(m->normal, fmaxf(0, adjust) * percent);
+	a->position = subv2f(a->position, mulv2nf(correction, a->inverse_mass));
+	b->position = addv2f(b->position, mulv2nf(correction, b->inverse_mass));
 }
 
 void pf_manifold_apply_impulse(const struct pf_manifold *m, struct pf_body *a,
@@ -241,11 +241,11 @@ void pf_manifold_apply_impulse(const struct pf_manifold *m, struct pf_body *a,
 
 	const float e = fminf(a->restitution, b->restitution);
 	const float j = (-(1 + e) *contactVelocity) / inverse_massSum;
-	const v2f impulse = mulv2fs(m->normal, j);
-	a->velocity = subv2f(a->velocity, mulv2fs(impulse, a->inverse_mass));
-	b->velocity = addv2f(b->velocity, mulv2fs(impulse, b->inverse_mass));
+	const v2f impulse = mulv2nf(m->normal, j);
+	a->velocity = subv2f(a->velocity, mulv2nf(impulse, a->inverse_mass));
+	b->velocity = addv2f(b->velocity, mulv2nf(impulse, b->inverse_mass));
 	rv = subv2f(b->velocity, a->velocity);
-	const v2f t = normv2f(subv2f(rv, mulv2fs(m->normal,
+	const v2f t = normv2f(subv2f(rv, mulv2nf(m->normal,
 						 dotv2f(rv, m->normal))));
 	const float jt = -dotv2f(rv,t) / inverse_massSum;
 	if (nearzerof(jt))
@@ -254,11 +254,11 @@ void pf_manifold_apply_impulse(const struct pf_manifold *m, struct pf_body *a,
 	const float k = fabsf(jt) < (j *m->static_friction)
 		? jt
 		: (-j *m->dynamic_friction);
-	const v2f tagentImpulse = mulv2fs(t, k);
+	const v2f tagentImpulse = mulv2nf(t, k);
 	a->velocity = subv2f(a->velocity,
-			     mulv2fs(tagentImpulse, a->inverse_mass));
+			     mulv2nf(tagentImpulse, a->inverse_mass));
 	b->velocity = addv2f(b->velocity,
-			     mulv2fs(tagentImpulse, b->inverse_mass));
+			     mulv2nf(tagentImpulse, b->inverse_mass));
 }
 
 void pf_body_set_mass(const float mass, struct pf_body *a) {
