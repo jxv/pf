@@ -93,8 +93,7 @@ bool pf_body_to_body(const pf_body_t *a, const pf_body_t *b,
     }
 }
 
-bool pf_body_to_body_swap(const pf_body_t *a, const pf_body_t *b,
-              v2f *normal, float *penetration) {
+bool pf_body_to_body_swap(const pf_body_t *a, const pf_body_t *b, v2f *normal, float *penetration) {
     const bool test = pf_body_to_body(b, a, normal, penetration);
     if (test) {
         *normal = negv2f(*normal);
@@ -185,7 +184,7 @@ void pf_integrate_force(float dt, pf_body_t *a) {
                    a->enable_gravity ? a->gravity : _v2f(0,0)),
             dt / 2
         );
-        a->velocity = addv2f(a->velocity, velocity);
+        a->velocity = a->parent ? velocity : addv2f(a->velocity, velocity);
     } else {
         // Allows moving static bodies
         a->velocity = mulv2nf(a->force, dt);
@@ -197,60 +196,48 @@ void pf_integrate_velocity(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
         const v2f position = mulv2nf(a->velocity, dt);
         a->position = addv2f(a->position, position);
-        //a->position = addv2f(a->position, mulv2nf(a->parent_velocity, dt));
         pf_integrate_force(dt, a);
     }
-}
-
-void pf_manifold_initialize(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m) {
-    m->mixed_restitution = a->restitution *b->restitution;
-    m->static_friction = a->static_friction *b->static_friction;
-    m->dynamic_friction = a->dynamic_friction *b->dynamic_friction;
 }
 
 void pf_positional_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *b) {
     float percent = 0.4;
     float slop = 0.05;
-    float adjust = (m->penetration - slop) /
-                 (a->inverse_mass + b->inverse_mass);
+    float adjust = (m->penetration - slop) / (a->inverse_mass + b->inverse_mass);
     const v2f correction = mulv2nf(m->normal, fmaxf(0, adjust) * percent);
     a->position = subv2f(a->position, mulv2nf(correction, a->inverse_mass));
     b->position = addv2f(b->position, mulv2nf(correction, b->inverse_mass));
 }
 
 void pf_manifold_apply_impulse(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b) {
-    float inverse_massSum = a->inverse_mass + b->inverse_mass;
+    const float inverse_massSum = a->inverse_mass + b->inverse_mass;
     if (nearzerof(inverse_massSum)) {
         a->velocity = _v2f(0,0);
         b->velocity = _v2f(0,0);
         return;
     }
-
     v2f rv = subv2f(b->velocity, a->velocity);
-    float contactVelocity = dotv2f(rv, m->normal);
-    if (contactVelocity > 0)
+    const float contactVelocity = dotv2f(rv, m->normal);
+    if (contactVelocity > 0) {
         return;
-
+    }
     float e = fminf(a->restitution, b->restitution);
     float j = (-(1 + e) *contactVelocity) / inverse_massSum;
     const v2f impulse = mulv2nf(m->normal, j);
     a->velocity = subv2f(a->velocity, mulv2nf(impulse, a->inverse_mass));
     b->velocity = addv2f(b->velocity, mulv2nf(impulse, b->inverse_mass));
     rv = subv2f(b->velocity, a->velocity);
-    const v2f t = normv2f(subv2f(rv, mulv2nf(m->normal,
-                         dotv2f(rv, m->normal))));
-    float jt = -dotv2f(rv,t) / inverse_massSum;
-    if (nearzerof(jt))
+    const v2f t = normv2f(subv2f(rv, mulv2nf(m->normal, dotv2f(rv, m->normal))));
+    const float jt = -dotv2f(rv,t) / inverse_massSum;
+    if (nearzerof(jt)) {
         return;
-
+    }
     float k = fabsf(jt) < (j *m->static_friction)
         ? jt
         : (-j *m->dynamic_friction);
     const v2f tagentImpulse = mulv2nf(t, k);
-    a->velocity = subv2f(a->velocity,
-                 mulv2nf(tagentImpulse, a->inverse_mass));
-    b->velocity = addv2f(b->velocity,
-                 mulv2nf(tagentImpulse, b->inverse_mass));
+    a->velocity = subv2f(a->velocity, mulv2nf(tagentImpulse, a->inverse_mass));
+    b->velocity = addv2f(b->velocity, mulv2nf(tagentImpulse, b->inverse_mass));
 }
 
 void pf_body_set_mass(float mass, pf_body_t *a) {
@@ -308,7 +295,6 @@ pf_body_t _pf_body() {
             },
         .position = _v2f(0,0),
         .velocity = _v2f(0,0),
-         //.parent_velocity = _v2f(0,0),
         .parent = NULL,
         .force = _v2f(0,0),
         .gravity = _v2f(0,9.8),
