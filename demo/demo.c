@@ -75,8 +75,7 @@ void make_world(world_t *w) {
         w->body_num++;
         *a = _pf_body();
         a->shape = pf_circle(3);
-        //a->gravity = _v2f(9.5, -9.8);
-        a->position = _v2f(4,5);
+        a->pos = _v2f(4,5);
         pf_bouncy_ball_esque(a);
     }
 
@@ -86,8 +85,7 @@ void make_world(world_t *w) {
         w->body_num++;
         *a = _pf_body();
         a->shape = pf_circle(0.5);
-        //a->gravity = _v2f(10,3);
-        a->position = _v2f(2,3);
+        a->pos = _v2f(2,3);
         pf_super_ball_esque(a);
     }
 
@@ -96,9 +94,8 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        //a->gravity = _v2f(-10, 6);
         a->shape = pf_rect(2,3);
-        a->position = _v2f(14,4);
+        a->pos = _v2f(14,4);
         pf_pillow_esque(a);
     }
 
@@ -110,7 +107,7 @@ void make_world(world_t *w) {
         a->mode = PF_BM_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(7,1);
-        a->position = _v2f(8,16.25);
+        a->pos = _v2f(8,16.25);
     }
 
     // Walls
@@ -122,7 +119,7 @@ void make_world(world_t *w) {
         a->mode = PF_BM_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(32,0.5);
-        a->position = _v2f(0,0);
+        a->pos = _v2f(0,0);
     }
     // Bottom
     {
@@ -132,7 +129,7 @@ void make_world(world_t *w) {
         a->mode = PF_BM_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(32,0.5);
-        a->position = _v2f(0,24);
+        a->pos = _v2f(0,24);
     }
     // Left
     {
@@ -142,7 +139,7 @@ void make_world(world_t *w) {
         a->mode = PF_BM_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(0.5,24);
-        a->position = _v2f(0,0);
+        a->pos = _v2f(0,0);
     }
     // Right
     {
@@ -153,7 +150,7 @@ void make_world(world_t *w) {
         pf_body_set_mass(0, a);
         a->mode = PF_BM_STATIC;
         a->shape = pf_rect(0.5,24);
-        a->position = _v2f(32,0);
+        a->pos = _v2f(32,0);
     }
 
 }
@@ -165,12 +162,24 @@ void make_demo(demo_t *d, SDL_Renderer *renderer) {
 
 void read_input(struct input *input) {
     SDL_Event event;
-    input->clear_parents = false;
+    memset(input, 0, sizeof(input_t));
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_KEYDOWN) {
             switch (event.key.keysym.sym) {
             case SDLK_ESCAPE:
                 input->quit = true;
+                break;
+            case SDLK_LEFT:
+                input->left = true;
+                break;
+            case SDLK_UP:
+                input->up = true;
+                break;
+            case SDLK_RIGHT:
+                input->right = true;
+                break;
+            case SDLK_DOWN:
+                input->down = true;
                 break;
             case SDLK_SPACE:
                 input->clear_parents = true;
@@ -196,10 +205,24 @@ void loop_demo(demo_t *d) {
     do {
         const unsigned int start_tick = SDL_GetTicks();
         read_input(&d->input);
-        for (int i = 0; i < d->world.body_num; i++) {
-            d->world.bodies[i].parent = NULL;
+//        for (int i = 0; i < d->world.body_num; i++) {
+//            d->world.bodies[i].parent = NULL;
+//        }
+        pf_body_t *ch = &d->world.bodies[2];
+        const float force = 100;
+        if (d->input.left) {
+            ch->intern_impulse = _v2f(-force, 0);
         }
-        step_world(&d->world);
+        if (d->input.right) {
+            ch->intern_impulse = _v2f(force, 0);
+        }
+        if (d->input.up) {
+            ch->intern_impulse = _v2f(0, -force);
+        }
+        if (d->input.down) {
+            ch->intern_impulse = _v2f(0, force);
+        }
+       step_world(&d->world);
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -213,10 +236,13 @@ void object_platform_relations(world_t *w);
 void move_platforms(world_t *w);
 void update_object_positions_on_platforms(world_t *w);
 void generate_collisions(world_t *w);
+void step_forces(world_t *w);
+void update_dpos(world_t *w);
 void integrate_forces(world_t *w);
 void solve_collisions(world_t *w);
 void cap_velocities(world_t *w);
 void integrate_velocities(world_t *w);
+void apply_dpos(world_t *w);
 void correct_positions(world_t *w);
 void reset_collisions(world_t *w);
 
@@ -229,10 +255,13 @@ void step_world(world_t *w) {
     update_object_positions_on_platforms(w);
     // Step objects as normally
     generate_collisions(w);
-    integrate_forces(w);
+    //integrate_forces(w);
+    step_forces(w);
+    update_dpos(w);
+    apply_dpos(w);
     solve_collisions(w);
-    cap_velocities(w);
-    integrate_velocities(w);
+    //cap_velocities(w);
+    //integrate_velocities(w);
     correct_positions(w);
     reset_collisions(w);
 }
@@ -245,16 +274,15 @@ void try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
         a->shape.tag == PF_SH_RECT &&
-        b->enable_gravity &&
-        !nearzerov2f(b->gravity)
+        !nearzerov2f(b->gravity_vel)
         ) {
-        if (fabsf(b->gravity.x) > fabsf(b->gravity.y)) {
-            if (normf(b->gravity.x) == normf(a->position.x - b->position.x) &&
+        if (fabsf(b->gravity_vel.x) > fabsf(b->gravity_vel.y)) {
+            if (normf(b->gravity_vel.x) == normf(a->pos.x - b->pos.x) &&
                 !b->parent) {
-                    b->parent = a;
+                b->parent = a;
             }
         } else {
-            if (normf(b->gravity.y) == normf(a->position.y - b->position.y) &&
+            if (normf(b->gravity_vel.y) == normf(a->pos.y - b->pos.y) &&
                 !b->parent) {
                 b->parent = a;
             }
@@ -267,6 +295,7 @@ void object_platform_relations(world_t *w) {
         // Find a valid reason to detach
         // Don't detach and possibly reattach each iteration
         w->bodies[i].parent = NULL;
+//        w->bodies[i].gravity_vel = _v2f(0,0);
     }
 
     for (int i = 0; i < w->body_num; i++) {
@@ -274,7 +303,7 @@ void object_platform_relations(world_t *w) {
         for (int j = i + 1; j < w->body_num; j++) {
             pf_body_t *b = &w->bodies[j];
             if ((a->mass == 0 && b->mass == 0) ||
-                (nearzerov2f(a->velocity) && nearzerov2f(b->velocity))) {
+                (nearzerov2f(a->dpos) && nearzerov2f(b->dpos))) {
                 continue;
             }
             pf_manifold_t manifold;
@@ -289,11 +318,14 @@ void object_platform_relations(world_t *w) {
 
 
 void move_platforms(world_t *w) {
-    w->bodies[3].force = _v2f(1,0);
+    w->bodies[3].intern_impulse = _v2f(1,0);
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_BM_STATIC) {
-            pf_integrate_force(w->dt, &w->bodies[i]);
-            pf_integrate_velocity(w->dt, &w->bodies[i]);
+            pf_step_forces(w->dt, &w->bodies[i]);
+            pf_update_dpos(w->dt, &w->bodies[i]);
+            pf_apply_dpos(&w->bodies[i]);
+            //pf_integrate_force(w->dt, &w->bodies[i]);
+            //pf_integrate_velocity(w->dt, &w->bodies[i]);
         }
     }
 }
@@ -303,8 +335,7 @@ void update_object_positions_on_platforms(world_t *w) {
         if (w->bodies[i].mode == PF_BM_DYNAMIC &&
             w->bodies[i].parent &&
             w->bodies[i].parent->mode == PF_BM_STATIC) {
-
-            w->bodies[i].position = addv2f(w->bodies[i].position, w->bodies[i].parent->velocity);
+            w->bodies[i].pos = addv2f(w->bodies[i].pos, w->bodies[i].parent->dpos);
         }
     }
 }
@@ -317,12 +348,12 @@ void generate_collisions(world_t *w) {
 
     for (int i = 0; i < w->body_num; i++) {
         const pf_body_t *i_body = &w->bodies[i];
-        const bool i_near_zero = nearzerov2f(i_body->velocity);
+        const bool i_near_zero = nearzerov2f(i_body->dpos);
         const bool i_no_mass = i_body->mass == 0;
 
         for (int j = i + 1; j < w->body_num; j++) {
             const pf_body_t *j_body = &w->bodies[j];
-            const bool j_near_zero = nearzerov2f(j_body->velocity);
+            const bool j_near_zero = nearzerov2f(j_body->dpos);
             const bool j_no_mass = j_body->mass == 0;
 
             if (i_no_mass && j_no_mass) {
@@ -345,6 +376,16 @@ void generate_collisions(world_t *w) {
     }
 }
 
+void step_forces(world_t *w) {
+    for (int i = 0; i < w->body_num; i++) {
+        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
+            pf_step_forces(w->dt, &w->bodies[i]);
+        }
+    }
+}
+
+
+/*
 void integrate_forces(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_BM_DYNAMIC) {
@@ -352,6 +393,7 @@ void integrate_forces(world_t *w) {
         }
     }
 }
+*/
 
 void solve_collisions(world_t *w) {
     for (int it = 0; it < w->iterations; it++) {
@@ -362,40 +404,62 @@ void solve_collisions(world_t *w) {
             pf_body_t *b = &w->bodies[km->b_key];
 
             if (a->parent == b) {
-                a->position = subv2f(a->position, mulv2nf(m->normal, m->penetration / w->iterations));
+                a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
             } else if (b->parent == a) {
-                b->position = subv2f(b->position, mulv2nf(m->normal, m->penetration / w->iterations));
+                b->pos = subv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
             } else {
-                pf_manifold_apply_impulse(m, a, b);
+                pf_apply_manifold(m, a, b);
             }
         }
     }
 }
 
-void cap_velocities(world_t *w) {
-    for (int i = 0; i < w->body_num; i++) {
-        w->bodies[i].velocity = clampv2f(_v2f(-300,-300), _v2f(300,300), w->bodies[i].velocity);
-    }
-}
+//void cap_velocities(world_t *w) {
+//    for (int i = 0; i < w->body_num; i++) {
+//        w->bodies[i].velocity = clampv2f(_v2f(-300,-300), _v2f(300,300), w->bodies[i].velocity);
+//    }
+//}
 
+
+/*
 void integrate_velocities(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
         pf_integrate_velocity(w->dt, &w->bodies[i]);
+    }
+}
+*/
+
+void update_dpos(world_t *w) {
+    for (int i = 0; i < w->body_num; i++) {
+        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
+            pf_update_dpos(w->dt, &w->bodies[i]);
+        }
+    }
+}
+
+void apply_dpos(world_t *w) {
+    //printf("%d: %f, %f\n", 2, w->bodies[2].pos.x, w->bodies[2].pos.y);
+    for (int i = 0; i < w->body_num; i++) {
+        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
+            pf_apply_dpos(&w->bodies[i]);
+        }
     }
 }
 
 void correct_positions(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
         const struct keys_manifold *km = &w->manifolds[i];
-        pf_positional_correction(&km->manifold, &w->bodies[km->a_key], &w->bodies[km->b_key]);
+        pf_pos_correction(&km->manifold, &w->bodies[km->a_key], &w->bodies[km->b_key]);
     }
 }
 
 void reset_collisions(world_t *w) {
+/*
     for (int i = 0; i < w->body_num; i++) {
         w->bodies[i].force = _v2f(0,0);
         //w->bodies[i].parent_velocity = _v2f(0,0);
     }
+*/
     w->manifold_num = 0;
 }
 
@@ -408,8 +472,8 @@ void render_demo(demo_t *d) {
         switch (a->shape.tag) {
         case PF_SH_RECT: {
             SDL_Rect rect = {
-                .x = 10 * (a->position.x - a->shape.radii.x),
-                .y = 10 * (a->position.y - a->shape.radii.y),
+                .x = 10 * (a->pos.x - a->shape.radii.x),
+                .y = 10 * (a->pos.y - a->shape.radii.y),
                 .w = 10 * (a->shape.radii.x * 2.0f),
                 .h = 10 * (a->shape.radii.y * 2.0f),
             };
@@ -423,10 +487,10 @@ void render_demo(demo_t *d) {
                 const float percent = (float)i * 2.0f * M_PI;
                 const float theta = percent / (float)(len - 1);
                 lines[i].x = 10
-                    * ((float)a->position.x
+                    * ((float)a->pos.x
                         + (float)a->shape.radius * cosf(theta));
                 lines[i].y = 10
-                    * ((float)a->position.y
+                    * ((float)a->pos.y
                     + (float)a->shape.radius * sinf(theta));
             }
             lines[len - 1] = lines[0];

@@ -31,12 +31,13 @@ typedef enum pf_body_mode {
 typedef struct pf_body {
 	pf_body_mode_t mode;
 	pf_shape_t shape;
-	v2f position;
+	v2f pos;
     struct pf_body *parent;
-	v2f intern_impluse; // Internally defined movement
+    v2f dpos;           // change of position
+	v2f intern_impulse; // Internally defined movement
     v2f intern_decay;   // Percentage to retain
     v2f intern_cap;     // Absoluted max speed
-    v2f extern_impluse; // Movements caused by other bodies
+    v2f extern_impulse; // Movements caused by other bodies
     v2f extern_decay;   // Percentage to retain
     v2f extern_cap;     // Absoluted max speed
     v2f gravity_vel;    // Current gravity pull
@@ -59,14 +60,19 @@ typedef struct pf_manifold {
 
 bool pf_intersect(const pf_aabb_t *a, const pf_aabb_t *b);
 bool pf_inside(const v2f *a, const pf_aabb_t *b);
-v2f pf_aabb_position(const pf_aabb_t *a);
+v2f pf_aabb_pos(const pf_aabb_t *a);
 pf_aabb_t pf_body_to_aabb(const pf_body_t *a);
 bool pf_test_body(const pf_aabb_t *a, const pf_body_t *b);
 bool pf_body_to_body(const pf_body_t *a, const pf_body_t *b, v2f *normal, float *penetration);
 bool pf_solve_collision(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m);
+
+void pf_step_forces(float dt, pf_body_t *a);
+void pf_apply_manifold(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
+void pf_update_dpos(float dt, pf_body_t *a);
+void pf_apply_dpos(pf_body_t *a);
 //void pf_integrate_force(const float dt, pf_body_t *a);
 //void pf_integrate_velocity(const float dt, pf_body_t *a);
-void pf_positional_correction(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
+void pf_pos_correction(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
 //void pf_manifold_apply_impulse(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
 
 void pf_body_set_mass(float mass, pf_body_t *a);

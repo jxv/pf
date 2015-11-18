@@ -27,15 +27,15 @@ pf_aabb_t pf_body_to_aabb(const pf_body_t *a) {
 
 pf_aabb_t pf_rect_to_aabb(const pf_body_t *a) {
     return (pf_aabb_t) {
-        .min = subv2f(a->position, a->shape.radii),
-        .max = addv2f(a->position, a->shape.radii)
+        .min = subv2f(a->pos, a->shape.radii),
+        .max = addv2f(a->pos, a->shape.radii)
     };
 }
 
 pf_aabb_t pf_circle_to_aabb(const pf_body_t *a) {
     return (pf_aabb_t) {
-        .min = subv2nf(a->position, a->shape.radius),
-        .max = divv2nf(a->position, a->shape.radius)
+        .min = subv2nf(a->pos, a->shape.radius),
+        .max = divv2nf(a->pos, a->shape.radius)
     };
 }
 
@@ -56,9 +56,9 @@ bool pf_test_rect(const pf_aabb_t *a, const pf_body_t *b) {
 }
 
 bool pf_test_circle(const pf_aabb_t *a, const pf_body_t *b) {
-    const bool inside = pf_inside(&b->position, a);
-    const v2f closest = clampv2f(a->min, a->max, b->position);
-    const v2f pos_diff = subv2f(b->position, pf_aabb_position(a));
+    const bool inside = pf_inside(&b->pos, a);
+    const v2f closest = clampv2f(a->min, a->max, b->pos);
+    const v2f pos_diff = subv2f(b->pos, pf_aabb_pos(a));
     float radius = b->shape.radius;
     const v2f normal = subv2f(pos_diff, closest);
     float dist_sq = sqlenv2f(normal);
@@ -102,7 +102,7 @@ bool pf_body_to_body_swap(const pf_body_t *a, const pf_body_t *b, v2f *normal, f
 }
 
 bool pf_rect_to_rect(const pf_body_t *a, const pf_body_t *b, v2f *normal, float *penetration) {
-    const v2f n = subv2f(b->position, a->position);
+    const v2f n = subv2f(b->pos, a->pos);
     const v2f overlap = subv2f(addv2f(a->shape.radii, b->shape.radii), absv2f(n));
     const pf_aabb_t a_shape = pf_rect_to_aabb(a);
     const pf_aabb_t b_shape = pf_rect_to_aabb(b);
@@ -120,17 +120,17 @@ bool pf_rect_to_rect(const pf_body_t *a, const pf_body_t *b, v2f *normal, float 
 }
 
 bool pf_rect_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, float *penetration) {
-    const bool out_lf = b->position.x < a->position.x - a->shape.radii.x;
-    const bool out_rt = b->position.x > a->position.x + a->shape.radii.x;
-    const bool out_up = b->position.y < a->position.y - a->shape.radii.y;
-    const bool out_dn = b->position.y > a->position.y + a->shape.radii.y;
+    const bool out_lf = b->pos.x < a->pos.x - a->shape.radii.x;
+    const bool out_rt = b->pos.x > a->pos.x + a->shape.radii.x;
+    const bool out_up = b->pos.y < a->pos.y - a->shape.radii.y;
+    const bool out_dn = b->pos.y > a->pos.y + a->shape.radii.y;
     if ((out_lf || out_rt) && (out_up || out_dn)) {
         /* Treat as (circle/corner_point)_to_circle collision */
         pf_body_t a_ = *a;
         a_.shape.tag = PF_SH_CIRCLE;
         a_.shape.radius = 0;
-        a_.position.x += out_lf ? -a->shape.radii.x : a->shape.radii.x;
-        a_.position.y += out_up ? -a->shape.radii.y : a->shape.radii.y;
+        a_.pos.x += out_lf ? -a->shape.radii.x : a->shape.radii.x;
+        a_.pos.y += out_up ? -a->shape.radii.y : a->shape.radii.y;
         return pf_circle_to_circle(&a_, b, normal, penetration);
     } else {
         /* Treat as pf_rect_to_rect collision */
@@ -142,7 +142,7 @@ bool pf_rect_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, floa
 }
 
 bool pf_circle_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, float *penetration) {
-    const v2f n = subv2f(b->position, a->position);
+    const v2f n = subv2f(b->pos, a->pos);
     float dist_sq = sqlenv2f(n);
     float dist = sqrtf(dist_sq);
     float radius = a->shape.radius + b->shape.radius;
@@ -158,7 +158,7 @@ bool pf_circle_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, fl
     return true;
 }
 
-inline v2f pf_aabb_position(const pf_aabb_t *a) {
+inline v2f pf_aabb_pos(const pf_aabb_t *a) {
     return divv2nf(addv2f(a->min, a->max), 2);
 }
 
@@ -177,6 +177,34 @@ bool pf_solve_collision(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m
     return false;
 }
 
+void pf_step_forces(float dt, pf_body_t *a) {
+    if (!nearzerof(a->inverse_mass)) {
+        a->intern_impulse = mulv2f(a->intern_impulse, a->intern_decay);
+        a->extern_impulse = mulv2f(a->extern_impulse, a->extern_decay);
+        a->gravity_vel = addv2f(a->gravity_vel, mulv2nf(a->gravity_accel, dt / 2));
+        //a->intern_impulse = clampv2f(a->intern_impulse, negv2f(a->intern_cap), a->intern_cap);
+        //a->extern_impulse = clampv2f(a->extern_impulse, negv2f(a->extern_cap), a->extern_cap);
+        //a->gravity_vel = clampv2f(a->gravity_vel, negv2f(a->gravity_cap), a->gravity_cap);
+    } else {
+        a->intern_impulse = mulv2f(a->intern_impulse, a->intern_decay);
+        //a->intern_impulse = clampv2f(a->intern_impulse, negv2f(a->intern_cap), a->intern_cap);
+    }
+}
+
+void pf_update_dpos(float dt, pf_body_t *a) {
+    if (!nearzerof(a->inverse_mass)) {
+        a->dpos = mulv2nf(a->intern_impulse, dt);
+        a->dpos = addv2f(a->dpos, mulv2nf(a->extern_impulse, dt));
+        a->dpos = addv2f(a->dpos, a->gravity_vel);
+    } else {
+        a->dpos = mulv2nf(a->intern_impulse, dt);
+    }
+}
+
+void pf_apply_dpos(pf_body_t *a) {
+    a->pos = addv2f(a->pos, a->dpos);
+}
+
 /*
 void pf_integrate_force(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
@@ -189,7 +217,7 @@ void pf_integrate_force(float dt, pf_body_t *a) {
     } else {
         // Allows moving static bodies
         a->velocity = mulv2nf(a->force, dt);
-        a->position = addv2f(a->velocity, a->position);
+        a->pos = addv2f(a->velocity, a->pos);
     }
 }
 */
@@ -197,20 +225,51 @@ void pf_integrate_force(float dt, pf_body_t *a) {
 /*
 void pf_integrate_velocity(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
-        const v2f position = mulv2nf(a->velocity, dt);
-        a->position = addv2f(a->position, position);
+        const v2f pos = mulv2nf(a->velocity, dt);
+        a->pos = addv2f(a->pos, pos);
         pf_integrate_force(dt, a);
     }
 }
 */
 
-void pf_positional_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *b) {
+void pf_pos_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *b) {
     float percent = 0.4;
     float slop = 0.05;
     float adjust = (m->penetration - slop) / (a->inverse_mass + b->inverse_mass);
     const v2f correction = mulv2nf(m->normal, fmaxf(0, adjust) * percent);
-    a->position = subv2f(a->position, mulv2nf(correction, a->inverse_mass));
-    b->position = addv2f(b->position, mulv2nf(correction, b->inverse_mass));
+    a->pos = subv2f(a->pos, mulv2nf(correction, a->inverse_mass));
+    b->pos = addv2f(b->pos, mulv2nf(correction, b->inverse_mass));
+}
+
+void pf_apply_manifold(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b) {
+    const float inverse_mass_sum = a->inverse_mass + b->inverse_mass;
+    if (nearzerof(inverse_mass_sum)) {
+        a->extern_impulse = _v2f(0,0);
+        b->extern_impulse = _v2f(0,0);
+        return;
+    }
+    v2f rv = subv2f(b->extern_impulse, a->extern_impulse);
+    const float contact_velocity = dotv2f(rv, m->normal);
+    if (contact_velocity > 0) {
+        return;
+    }
+    const float e = fminf(a->restitution, b->restitution);
+    const float j = (-(1 + e) * contact_velocity) / inverse_mass_sum;
+    const v2f impulse = mulv2nf(m->normal, j);
+    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(impulse, a->inverse_mass));
+    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(impulse, b->inverse_mass));
+    rv = subv2f(b->extern_impulse, a->extern_impulse);
+    const v2f t = normv2f(subv2f(rv, mulv2nf(m->normal, dotv2f(rv, m->normal))));
+    const float jt = -dotv2f(rv,t) / inverse_mass_sum;
+    if (nearzerof(jt)) {
+        return;
+    }
+    float k = fabsf(jt) < (j *m->static_friction)
+        ? jt
+        : (-j *m->dynamic_friction);
+    const v2f tagent_impulse = mulv2nf(t, k);
+    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(tagent_impulse, a->inverse_mass));
+    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(tagent_impulse, b->inverse_mass));
 }
 
 /*
@@ -299,17 +358,18 @@ pf_body_t _pf_body() {
                 .tag = PF_SH_CIRCLE,
                 .radius = 0
             },
-        .position = _v2f(0,0),
+        .pos = _v2f(0,0),
         .parent = NULL,
-        .intern_impluse = _v2f(0,0),
-        .intern_decay = _v2f(0,0),
-        .intern_cap = _v2f(1000, 1000),
-        .extern_impluse = _v2f(0,0),
-        .extern_decay = _v2f(0,0),
-        .extern_cap = _v2f(0,0),
-        .gravity_vel = _v2f(0,0),
+        .dpos = _v2f(0,0),
+        .intern_impulse = fillv2f(0),
+        .intern_decay = fillv2f(0.3),
+        .intern_cap = fillv2f(1000),
+        .extern_impulse = fillv2f(0),
+        .extern_decay = fillv2f(0.3),
+        .extern_cap = fillv2f(1000),
+        .gravity_vel = fillv2f(0),
         .gravity_accel = _v2f(0,9.8),
-        .gravity_cap = _v2f(0,0),
+        .gravity_cap = fillv2f(10),
         .mass = 1,
         .inverse_mass = 1,
         .static_friction = 0.9,
