@@ -214,7 +214,6 @@ void move_platforms(world_t *w);
 void update_object_positions_on_platforms(world_t *w);
 void generate_collisions(world_t *w);
 void integrate_forces(world_t *w);
-void initialize_collisions(world_t *w);
 void solve_collisions(world_t *w);
 void cap_velocities(world_t *w);
 void integrate_velocities(world_t *w);
@@ -231,7 +230,6 @@ void step_world(world_t *w) {
     // Step objects as normally
     generate_collisions(w);
     integrate_forces(w);
-    //initialize_collisions(w); //unnecessary
     solve_collisions(w);
     cap_velocities(w);
     integrate_velocities(w);
@@ -352,14 +350,6 @@ void integrate_forces(world_t *w) {
         if (w->bodies[i].mode == PF_BM_DYNAMIC) {
             pf_integrate_force(w->dt, &w->bodies[i]);
         }
-    }
-}
-
-void initialize_collisions(world_t *w) {
-    for (int i = 0; i < w->manifold_num; i++) {
-        const pf_body_t *a = &w->bodies[w->manifolds[i].a_key];
-        const pf_body_t *b = &w->bodies[w->manifolds[i].b_key];
-        pf_manifold_initialize(a, b, &w->manifolds[i].manifold);
     }
 }
 
