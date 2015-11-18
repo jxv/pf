@@ -226,7 +226,7 @@ void loop_demo(demo_t *d) {
         if (d->input.up) {
             ch->intern_impulse = _v2f(0, -force);
         }
-        if (d->input.down) {
+        if (d->input.down && !ch->parent) {
             ch->intern_impulse = _v2f(0, force);
         }
         if (d->input.change_axis) {
@@ -234,7 +234,6 @@ void loop_demo(demo_t *d) {
         }
         //
         step_world(&d->world);
-/*
         printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: (%.2f,%.2f)\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
             ch->intern_impulse.x, ch->intern_impulse.y,
@@ -242,7 +241,6 @@ void loop_demo(demo_t *d) {
             ch->gravity_vel.x, ch->gravity_vel.y,
             (void*)ch->parent
         );
-*/
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -259,9 +257,8 @@ void generate_collisions(world_t *w);
 void step_forces(world_t *w);
 void update_dpos(world_t *w);
 void integrate_forces(world_t *w);
-void solve_collisions(world_t *w);
-void cap_velocities(world_t *w);
-void integrate_velocities(world_t *w);
+void solve_object_collisions(world_t *w);
+void solve_platform_collisions(world_t *w);
 void apply_dpos(world_t *w);
 void correct_positions(world_t *w);
 void reset_collisions(world_t *w);
@@ -278,8 +275,15 @@ void step_world(world_t *w) {
     update_dpos(w);
     apply_dpos(w);
     step_forces(w);
-    solve_collisions(w);
+    solve_object_collisions(w);
+
+    object_platform_relations(w);
+    reset_collisions(w);
+    generate_collisions(w);
+  
+    solve_platform_collisions(w);
     correct_positions(w);
+
     reset_collisions(w);
 }
 
@@ -422,7 +426,34 @@ void step_forces(world_t *w) {
     }
 }
 
-void solve_collisions(world_t *w) {
+void solve_object_collisions(world_t *w) {
+    for (int it = 0; it < w->iterations; it++) {
+        for (int i = 0; i < w->manifold_num; i++) {
+            const keys_manifold_t *km = &w->manifolds[i];
+            const pf_manifold_t *m = &km->manifold;
+            pf_body_t *a = &w->bodies[km->a_key];
+            pf_body_t *b = &w->bodies[km->b_key];
+
+            if (!((a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) &&
+                 (a->parent != b && b->parent != a))) {
+                pf_body_t *item = &w->bodies[1]; // small circle
+                // bounce off other dynamic bodies
+                if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
+                    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
+                    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
+                }
+                if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
+                    // don't let player bodies 'pop-up' if they're on a platform (which might be moving)
+                    a->extern_impulse.y = 0;
+                    b->extern_impulse.y = 0;
+                }
+                pf_apply_manifold(m, a, b);
+            }
+        }
+    }
+}
+
+void solve_platform_collisions(world_t *w) {
     for (int it = 0; it < w->iterations; it++) {
         for (int i = 0; i < w->manifold_num; i++) {
             const keys_manifold_t *km = &w->manifolds[i];
@@ -436,14 +467,6 @@ void solve_collisions(world_t *w) {
                     a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
                 if (a->mode == PF_BM_STATIC)
                     b->pos = addv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
-            } else {
-                pf_body_t *item = &w->bodies[1]; // small circle
-                // bounce off other dynamic bodies
-                if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
-                    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
-                    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
-                }
-                pf_apply_manifold(m, a, b);
             }
         }
     }
@@ -467,24 +490,15 @@ void apply_dpos(world_t *w) {
 }
 
 void correct_positions(world_t *w) {
-    v2f mv = w->bodies[2].pos;
     for (int i = 0; i < w->manifold_num; i++) {
         const struct keys_manifold *km = &w->manifolds[i];
         const pf_manifold_t *m = &km->manifold;
         pf_body_t *a = &w->bodies[km->a_key];
         pf_body_t *b = &w->bodies[km->b_key];
-
-/*
-        if (km->a_key == 2 || km->b_key == 2) {
-            printf("connected: %d %d\n", km->a_key, km->b_key);
-        }
-*/
         if (a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) {
             pf_pos_correction(m, a, b);
         }
     }
-    mv = subv2f(mv, w->bodies[2].pos);
-    //printf("moved: (%.2f,%.2f)\n", mv.x, mv.y);
 }
 
 void reset_collisions(world_t *w) {
