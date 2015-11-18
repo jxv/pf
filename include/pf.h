@@ -32,11 +32,16 @@ typedef struct pf_body {
 	pf_body_mode_t mode;
 	pf_shape_t shape;
 	v2f position;
-	v2f velocity;
     struct pf_body *parent;
-	v2f force;
-	v2f gravity;
-	bool enable_gravity;
+	v2f intern_impluse; // Internally defined movement
+    v2f intern_decay;   // Percentage to retain
+    v2f intern_cap;     // Absoluted max speed
+    v2f extern_impluse; // Movements caused by other bodies
+    v2f extern_decay;   // Percentage to retain
+    v2f extern_cap;     // Absoluted max speed
+    v2f gravity_force;  // Current gravity pull
+	v2f gravity_rate;   // Rate of gravity
+    v2f gravity_cap;    // Absoluted max speed 
 	float mass;
 	float inverse_mass;
 	float static_friction;
@@ -59,11 +64,10 @@ pf_aabb_t pf_body_to_aabb(const pf_body_t *a);
 bool pf_test_body(const pf_aabb_t *a, const pf_body_t *b);
 bool pf_body_to_body(const pf_body_t *a, const pf_body_t *b, v2f *normal, float *penetration);
 bool pf_solve_collision(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m);
-void pf_integrate_force(const float dt, pf_body_t *a);
-void pf_integrate_velocity(const float dt, pf_body_t *a);
-void pf_manifold_initialize(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m);
+//void pf_integrate_force(const float dt, pf_body_t *a);
+//void pf_integrate_velocity(const float dt, pf_body_t *a);
 void pf_positional_correction(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
-void pf_manifold_apply_impulse(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
+//void pf_manifold_apply_impulse(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b);
 
 void pf_body_set_mass(float mass, pf_body_t *a);
 void pf_body_esque(float density, float restitution, pf_body_t *a);

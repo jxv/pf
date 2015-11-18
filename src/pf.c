@@ -177,11 +177,12 @@ bool pf_solve_collision(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m
     return false;
 }
 
+/*
 void pf_integrate_force(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
         const v2f velocity = mulv2nf(
             addv2f(mulv2nf(a->force, a->inverse_mass),
-                   a->enable_gravity ? a->gravity : _v2f(0,0)),
+                   a->gravity_rate : _v2f(0,0)),
             dt / 2
         );
         a->velocity = a->parent ? velocity : addv2f(a->velocity, velocity);
@@ -191,7 +192,9 @@ void pf_integrate_force(float dt, pf_body_t *a) {
         a->position = addv2f(a->velocity, a->position);
     }
 }
+*/
 
+/*
 void pf_integrate_velocity(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
         const v2f position = mulv2nf(a->velocity, dt);
@@ -199,6 +202,7 @@ void pf_integrate_velocity(float dt, pf_body_t *a) {
         pf_integrate_force(dt, a);
     }
 }
+*/
 
 void pf_positional_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *b) {
     float percent = 0.4;
@@ -209,6 +213,7 @@ void pf_positional_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *
     b->position = addv2f(b->position, mulv2nf(correction, b->inverse_mass));
 }
 
+/*
 void pf_manifold_apply_impulse(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b) {
     const float inverse_massSum = a->inverse_mass + b->inverse_mass;
     if (nearzerof(inverse_massSum)) {
@@ -239,6 +244,7 @@ void pf_manifold_apply_impulse(const pf_manifold_t *m, pf_body_t *a, pf_body_t *
     a->velocity = subv2f(a->velocity, mulv2nf(tagentImpulse, a->inverse_mass));
     b->velocity = addv2f(b->velocity, mulv2nf(tagentImpulse, b->inverse_mass));
 }
+*/
 
 void pf_body_set_mass(float mass, pf_body_t *a) {
     a->mass = mass;
@@ -294,11 +300,16 @@ pf_body_t _pf_body() {
                 .radius = 0
             },
         .position = _v2f(0,0),
-        .velocity = _v2f(0,0),
         .parent = NULL,
-        .force = _v2f(0,0),
-        .gravity = _v2f(0,9.8),
-        .enable_gravity = true,
+        .intern_impluse = _v2f(0,0),
+        .intern_decay = _v2f(0,0),
+        .intern_cap = _v2f(1000, 1000),
+        .extern_impluse = _v2f(0,0),
+        .extern_decay = _v2f(0,0),
+        .extern_cap = _v2f(0,0),
+        .gravity_force = _v2f(0,0),
+        .gravity_rate = _v2f(0,9.8),
+        .gravity_cap = _v2f(0,0),
         .mass = 1,
         .inverse_mass = 1,
         .static_friction = 0.9,
