@@ -22,6 +22,7 @@ typedef struct keys_manifold {
 #define CANNON_BALL_RADIUS 1.5
 
 typedef struct world {
+    bool to_release[MAX_BODIES];
     pf_body_t bodies[MAX_BODIES];
     int body_num;
     keys_manifold_t manifolds[MAX_MANIFOLDS];
@@ -74,6 +75,8 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
+        a->gravity_accel = _v2f(0, 1);
+        a->gravity_cap = _v2f(0, 1);
         a->shape = pf_circle(3);
         a->pos = _v2f(4,5);
         pf_bouncy_ball_esque(a);
@@ -84,7 +87,9 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->shape = pf_circle(0.5);
+        a->gravity_accel = _v2f(0, 1);
+        a->gravity_cap = _v2f(0, 1);
+        a->shape = pf_circle(1);
         a->pos = _v2f(2,3);
         pf_super_ball_esque(a);
     }
@@ -94,6 +99,8 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
+        a->gravity_accel = _v2f(0, 1);
+        a->gravity_cap = _v2f(0, 1);
         a->shape = pf_rect(2,3);
         a->pos = _v2f(14,4);
         pf_pillow_esque(a);
@@ -205,11 +212,9 @@ void loop_demo(demo_t *d) {
     do {
         const unsigned int start_tick = SDL_GetTicks();
         read_input(&d->input);
-//        for (int i = 0; i < d->world.body_num; i++) {
-//            d->world.bodies[i].parent = NULL;
-//        }
+        //
         pf_body_t *ch = &d->world.bodies[2];
-        const float force = 100;
+        const float force = 60;
         if (d->input.left) {
             ch->intern_impulse = _v2f(-force, 0);
         }
@@ -222,7 +227,15 @@ void loop_demo(demo_t *d) {
         if (d->input.down) {
             ch->intern_impulse = _v2f(0, force);
         }
-       step_world(&d->world);
+        //
+        step_world(&d->world);
+        printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: (%.2f,%.2f)\tparent: %p\n",
+            ch->dpos.x, ch->dpos.y,
+            ch->intern_impulse.x, ch->intern_impulse.y,
+            ch->extern_impulse.x, ch->extern_impulse.y,
+            ch->gravity_vel.x, ch->gravity_vel.y,
+            (void*)ch->parent
+        );
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -255,13 +268,10 @@ void step_world(world_t *w) {
     update_object_positions_on_platforms(w);
     // Step objects as normally
     generate_collisions(w);
-    //integrate_forces(w);
-    step_forces(w);
     update_dpos(w);
     apply_dpos(w);
+    step_forces(w);
     solve_collisions(w);
-    //cap_velocities(w);
-    //integrate_velocities(w);
     correct_positions(w);
     reset_collisions(w);
 }
@@ -270,46 +280,57 @@ float normf(float x) {
     return nearzerof(x) ? 0 : (x > 0 ? 1 : -1);
 }
 
-void try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
+bool try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
         a->shape.tag == PF_SH_RECT &&
         !nearzerov2f(b->gravity_vel)
         ) {
         if (fabsf(b->gravity_vel.x) > fabsf(b->gravity_vel.y)) {
-            if (normf(b->gravity_vel.x) == normf(a->pos.x - b->pos.x) &&
-                !b->parent) {
+            if (normf(b->gravity_vel.x) == normf(a->pos.x - b->pos.x)) {
                 b->parent = a;
+                return true;
             }
         } else {
-            if (normf(b->gravity_vel.y) == normf(a->pos.y - b->pos.y) &&
-                !b->parent) {
+            if (normf(b->gravity_vel.y) == normf(a->pos.y - b->pos.y)) {
                 b->parent = a;
+                return true;
             }
         }
     }
+    return false;
 }
 
 void object_platform_relations(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
-        // Find a valid reason to detach
-        // Don't detach and possibly reattach each iteration
-        w->bodies[i].parent = NULL;
-//        w->bodies[i].gravity_vel = _v2f(0,0);
-    }
-
-    for (int i = 0; i < w->body_num; i++) {
         pf_body_t *a = &w->bodies[i];
+        pf_manifold_t m;
+
+        // Decide to detach from parent
+        if (a->parent) {
+            if (!pf_solve_collision(a, a->parent, &m)) {
+                a->parent = NULL;
+            }
+        }
+        if (a->parent) {
+            continue;
+        }
+
+        // Find parent to to attach
         for (int j = i + 1; j < w->body_num; j++) {
             pf_body_t *b = &w->bodies[j];
-            if ((a->mass == 0 && b->mass == 0) ||
-                (nearzerov2f(a->dpos) && nearzerov2f(b->dpos))) {
+            if ((a->mass == 0 && b->mass == 0)) {
                 continue;
             }
-            pf_manifold_t manifold;
-            if (pf_solve_collision(a, b, &manifold)) {
-                try_child_connect_parent(a, b);
-                try_child_connect_parent(b, a);
+            if (pf_solve_collision(a, b, &m)) {
+                v2f penetration = mulv2nf(m.normal, m.penetration);
+                penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011));
+                if (try_child_connect_parent(a, b)) {
+                    b->pos = addv2f(b->pos, penetration);
+                }
+                if (try_child_connect_parent(b, a)) {
+                    a->pos = subv2f(a->pos, penetration);
+                }
             }
         }
     }
@@ -318,14 +339,25 @@ void object_platform_relations(world_t *w) {
 
 
 void move_platforms(world_t *w) {
-    w->bodies[3].intern_impulse = _v2f(1,0);
+    {
+        static bool dir = false;
+        pf_body_t *a = &w->bodies[3];
+        if (dir) {
+            if (a->pos.x < 0) {
+                dir = false;
+            }
+        } else {
+            if (a->pos.x > 32) {
+                dir = true;
+            }
+        }
+        a->intern_impulse = _v2f(dir ? -10 : 10, 0);
+    }
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_BM_STATIC) {
-            pf_step_forces(w->dt, &w->bodies[i]);
             pf_update_dpos(w->dt, &w->bodies[i]);
             pf_apply_dpos(&w->bodies[i]);
-            //pf_integrate_force(w->dt, &w->bodies[i]);
-            //pf_integrate_velocity(w->dt, &w->bodies[i]);
+            pf_step_forces(w->dt, &w->bodies[i]);
         }
     }
 }
@@ -342,29 +374,14 @@ void update_object_positions_on_platforms(world_t *w) {
 
 void generate_collisions(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
-        //don't disable gravity
-        //w->bodies[i].enable_gravity = !w->bodies[i].parent;
-    }
-
-    for (int i = 0; i < w->body_num; i++) {
-        const pf_body_t *i_body = &w->bodies[i];
-        const bool i_near_zero = nearzerov2f(i_body->dpos);
-        const bool i_no_mass = i_body->mass == 0;
-
+        const pf_body_t *a = &w->bodies[i];
         for (int j = i + 1; j < w->body_num; j++) {
-            const pf_body_t *j_body = &w->bodies[j];
-            const bool j_near_zero = nearzerov2f(j_body->dpos);
-            const bool j_no_mass = j_body->mass == 0;
-
-            if (i_no_mass && j_no_mass) {
+            const pf_body_t *b = &w->bodies[j];
+            if (a->mass == 0 && b->mass == 0) {
                 continue;
             }
-            if (i_near_zero && j_near_zero) {
-                continue;
-            }
-
             struct keys_manifold *km = &w->manifolds[w->manifold_num];
-            if (pf_solve_collision(i_body, j_body, &km->manifold)) {
+            if (pf_solve_collision(a, b, &km->manifold)) {
                 km->a_key = i;
                 km->b_key = j;
                 w->manifold_num++;
@@ -384,17 +401,6 @@ void step_forces(world_t *w) {
     }
 }
 
-
-/*
-void integrate_forces(world_t *w) {
-    for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
-            pf_integrate_force(w->dt, &w->bodies[i]);
-        }
-    }
-}
-*/
-
 void solve_collisions(world_t *w) {
     for (int it = 0; it < w->iterations; it++) {
         for (int i = 0; i < w->manifold_num; i++) {
@@ -403,31 +409,23 @@ void solve_collisions(world_t *w) {
             pf_body_t *a = &w->bodies[km->a_key];
             pf_body_t *b = &w->bodies[km->b_key];
 
-            if (a->parent == b) {
-                a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
-            } else if (b->parent == a) {
-                b->pos = subv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
+            if ((a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) &&
+                (a->parent != b && b->parent != a)) {
+                if (b->mode == PF_BM_STATIC)
+                    a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
+                if (a->mode == PF_BM_STATIC)
+                    b->pos = addv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
             } else {
+                // bounce off other dynamic bodies
+                if (a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
+                    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
+                    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
+                }
                 pf_apply_manifold(m, a, b);
             }
         }
     }
 }
-
-//void cap_velocities(world_t *w) {
-//    for (int i = 0; i < w->body_num; i++) {
-//        w->bodies[i].velocity = clampv2f(_v2f(-300,-300), _v2f(300,300), w->bodies[i].velocity);
-//    }
-//}
-
-
-/*
-void integrate_velocities(world_t *w) {
-    for (int i = 0; i < w->body_num; i++) {
-        pf_integrate_velocity(w->dt, &w->bodies[i]);
-    }
-}
-*/
 
 void update_dpos(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
@@ -447,19 +445,25 @@ void apply_dpos(world_t *w) {
 }
 
 void correct_positions(world_t *w) {
-    for (int i = 0; i < w->body_num; i++) {
+    v2f mv = w->bodies[2].pos;
+    for (int i = 0; i < w->manifold_num; i++) {
         const struct keys_manifold *km = &w->manifolds[i];
-        pf_pos_correction(&km->manifold, &w->bodies[km->a_key], &w->bodies[km->b_key]);
+        const pf_manifold_t *m = &km->manifold;
+        pf_body_t *a = &w->bodies[km->a_key];
+        pf_body_t *b = &w->bodies[km->b_key];
+
+        if (km->a_key == 2 || km->b_key == 2) {
+            printf("connected: %d %d\n", km->a_key, km->b_key);
+        }
+        if (a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) {
+            pf_pos_correction(m, a, b);
+        }
     }
+    mv = subv2f(mv, w->bodies[2].pos);
+    printf("moved: (%.2f,%.2f)\n", mv.x, mv.y);
 }
 
 void reset_collisions(world_t *w) {
-/*
-    for (int i = 0; i < w->body_num; i++) {
-        w->bodies[i].force = _v2f(0,0);
-        //w->bodies[i].parent_velocity = _v2f(0,0);
-    }
-*/
     w->manifold_num = 0;
 }
 

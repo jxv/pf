@@ -181,22 +181,31 @@ void pf_step_forces(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
         a->intern_impulse = mulv2f(a->intern_impulse, a->intern_decay);
         a->extern_impulse = mulv2f(a->extern_impulse, a->extern_decay);
-        a->gravity_vel = addv2f(a->gravity_vel, mulv2nf(a->gravity_accel, dt / 2));
-        //a->intern_impulse = clampv2f(a->intern_impulse, negv2f(a->intern_cap), a->intern_cap);
-        //a->extern_impulse = clampv2f(a->extern_impulse, negv2f(a->extern_cap), a->extern_cap);
-        //a->gravity_vel = clampv2f(a->gravity_vel, negv2f(a->gravity_cap), a->gravity_cap);
+        if (!a->parent) {
+            a->gravity_vel = addv2f(a->gravity_vel, mulv2nf(a->gravity_accel, dt / 2));
+        } else {
+            a->gravity_vel = _v2f(0,0);
+        }
     } else {
         a->intern_impulse = mulv2f(a->intern_impulse, a->intern_decay);
-        //a->intern_impulse = clampv2f(a->intern_impulse, negv2f(a->intern_cap), a->intern_cap);
+        a->extern_impulse = _v2f(0,0);
+        a->gravity_vel = _v2f(0,0);
     }
 }
 
 void pf_update_dpos(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
+        a->intern_impulse = clampv2f(sigv2f(a->intern_cap), absv2f(a->intern_cap), a->intern_impulse);
+        a->extern_impulse = clampv2f(sigv2f(a->extern_cap), absv2f(a->extern_cap), a->extern_impulse);
+        a->gravity_vel = clampv2f(sigv2f(a->gravity_cap), absv2f(a->gravity_cap), a->gravity_vel);
+
         a->dpos = mulv2nf(a->intern_impulse, dt);
         a->dpos = addv2f(a->dpos, mulv2nf(a->extern_impulse, dt));
-        a->dpos = addv2f(a->dpos, a->gravity_vel);
+        if (!a->parent) {
+            a->dpos = addv2f(a->dpos, a->gravity_vel);
+        }
     } else {
+        a->intern_impulse = clampv2f(sigv2f(a->intern_cap), absv2f(a->intern_cap), a->intern_impulse);
         a->dpos = mulv2nf(a->intern_impulse, dt);
     }
 }
@@ -233,8 +242,8 @@ void pf_integrate_velocity(float dt, pf_body_t *a) {
 */
 
 void pf_pos_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *b) {
-    float percent = 0.4;
-    float slop = 0.05;
+    float percent = 0.2;
+    float slop = 0.01;
     float adjust = (m->penetration - slop) / (a->inverse_mass + b->inverse_mass);
     const v2f correction = mulv2nf(m->normal, fmaxf(0, adjust) * percent);
     a->pos = subv2f(a->pos, mulv2nf(correction, a->inverse_mass));
@@ -368,7 +377,7 @@ pf_body_t _pf_body() {
         .extern_decay = fillv2f(0.3),
         .extern_cap = fillv2f(1000),
         .gravity_vel = fillv2f(0),
-        .gravity_accel = _v2f(0,9.8),
+        .gravity_accel = _v2f(0, 9.8),
         .gravity_cap = fillv2f(10),
         .mass = 1,
         .inverse_mass = 1,
