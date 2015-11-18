@@ -29,6 +29,7 @@ typedef struct world {
     int manifold_num;
     float dt;
     int iterations;
+    bool platform_dir;
 } world_t;
 
 typedef struct input {
@@ -37,7 +38,7 @@ typedef struct input {
     bool right;
     bool up;
     bool down;
-    bool clear_parents;
+    bool change_axis;
 } input_t;
 
 typedef struct demo {
@@ -68,7 +69,8 @@ void make_world(world_t *w) {
     w->body_num = 0;
     w->manifold_num = 0;
     w->dt = 1.0 / 60.0;
-    w->iterations = 10;
+    w->iterations = 1;
+    w->platform_dir = false;;
 
     // Large circle
     {
@@ -189,7 +191,7 @@ void read_input(struct input *input) {
                 input->down = true;
                 break;
             case SDLK_SPACE:
-                input->clear_parents = true;
+                input->change_axis = true;
                 break;
             default:
                 break;
@@ -214,7 +216,7 @@ void loop_demo(demo_t *d) {
         read_input(&d->input);
         //
         pf_body_t *ch = &d->world.bodies[2];
-        const float force = 60;
+        const float force = 30;
         if (d->input.left) {
             ch->intern_impulse = _v2f(-force, 0);
         }
@@ -227,8 +229,12 @@ void loop_demo(demo_t *d) {
         if (d->input.down) {
             ch->intern_impulse = _v2f(0, force);
         }
+        if (d->input.change_axis) {
+            d->world.platform_dir = !d->world.platform_dir;
+        }
         //
         step_world(&d->world);
+/*
         printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: (%.2f,%.2f)\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
             ch->intern_impulse.x, ch->intern_impulse.y,
@@ -236,6 +242,7 @@ void loop_demo(demo_t *d) {
             ch->gravity_vel.x, ch->gravity_vel.y,
             (void*)ch->parent
         );
+*/
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -342,16 +349,30 @@ void move_platforms(world_t *w) {
     {
         static bool dir = false;
         pf_body_t *a = &w->bodies[3];
-        if (dir) {
-            if (a->pos.x < 0) {
-                dir = false;
+        if (w->platform_dir) {
+            if (dir) {
+                if (a->pos.x < 0) {
+                    dir = false;
+                }
+            } else {
+                if (a->pos.x > 32) {
+                    dir = true;
+                }
             }
+            a->intern_impulse = _v2f(dir ? -10 : 10, 0);
         } else {
-            if (a->pos.x > 32) {
-                dir = true;
+            if (dir) {
+                if (a->pos.y < 10) {
+                    dir = false;
+                }
+            } else {
+                if (a->pos.y > 25) {
+                    dir = true;
+                }
             }
+            a->intern_impulse = _v2f(0, dir ? -10 : 10);
+
         }
-        a->intern_impulse = _v2f(dir ? -10 : 10, 0);
     }
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_BM_STATIC) {
@@ -416,8 +437,9 @@ void solve_collisions(world_t *w) {
                 if (a->mode == PF_BM_STATIC)
                     b->pos = addv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
             } else {
+                pf_body_t *item = &w->bodies[1]; // small circle
                 // bounce off other dynamic bodies
-                if (a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
+                if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
                     a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
                     b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
                 }
@@ -452,15 +474,17 @@ void correct_positions(world_t *w) {
         pf_body_t *a = &w->bodies[km->a_key];
         pf_body_t *b = &w->bodies[km->b_key];
 
+/*
         if (km->a_key == 2 || km->b_key == 2) {
             printf("connected: %d %d\n", km->a_key, km->b_key);
         }
+*/
         if (a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) {
             pf_pos_correction(m, a, b);
         }
     }
     mv = subv2f(mv, w->bodies[2].pos);
-    printf("moved: (%.2f,%.2f)\n", mv.x, mv.y);
+    //printf("moved: (%.2f,%.2f)\n", mv.x, mv.y);
 }
 
 void reset_collisions(world_t *w) {

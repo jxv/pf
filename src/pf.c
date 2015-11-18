@@ -371,7 +371,7 @@ pf_body_t _pf_body() {
         .parent = NULL,
         .dpos = _v2f(0,0),
         .intern_impulse = fillv2f(0),
-        .intern_decay = fillv2f(0.3),
+        .intern_decay = fillv2f(0.5),
         .intern_cap = fillv2f(1000),
         .extern_impulse = fillv2f(0),
         .extern_decay = fillv2f(0.3),
