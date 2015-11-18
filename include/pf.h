@@ -39,8 +39,8 @@ typedef struct pf_body {
     v2f extern_impluse; // Movements caused by other bodies
     v2f extern_decay;   // Percentage to retain
     v2f extern_cap;     // Absoluted max speed
-    v2f gravity_force;  // Current gravity pull
-	v2f gravity_rate;   // Rate of gravity
+    v2f gravity_vel;    // Current gravity pull
+	v2f gravity_accel;  // Rate of gravity
     v2f gravity_cap;    // Absoluted max speed 
 	float mass;
 	float inverse_mass;
