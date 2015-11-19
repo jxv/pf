@@ -31,7 +31,7 @@ typedef enum pf_body_mode {
 typedef enum pf_group {
     PF_GROUP_NO_WAY_PLATFORM,   // solid platform
     PF_GROUP_UP_WAY_PLATFORM,   // jump-up-onto only platform
-    PF_GROUP_TWO_WAY_PLATFORM,  // jump-up and jump-off platform
+    PF_GROUP_TWO_WAY_PLATFORM,  // jump-up and jump-down platform
     PF_GROUP_CHARACTER,         // character
     PF_GROUP_OBJECT,            // object (eg. items, projectiles)
 } pf_group_t;
