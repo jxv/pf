@@ -177,36 +177,50 @@ bool pf_solve_collision(const pf_body_t *a, const pf_body_t *b, pf_manifold_t *m
     return false;
 }
 
+v2f pf_gravity_v2f(pf_dir_t dir, float vel) {
+    switch (dir) {
+    case PF_DIR_U:
+        return _v2f(0, -vel);
+    case PF_DIR_D:
+        return _v2f(0, vel);
+    case PF_DIR_L:
+        return _v2f(-vel, 0);
+    case PF_DIR_R:
+        return _v2f(vel, 0);
+    }
+    return _v2f(0, 0);
+}
+
 void pf_step_forces(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
-        a->intern_impulse = mulv2f(a->intern_impulse, a->intern_decay);
-        a->extern_impulse = mulv2f(a->extern_impulse, a->extern_decay);
+        a->in.impulse = mulv2f(a->in.impulse, a->in.decay);
+        a->ex.impulse = mulv2f(a->ex.impulse, a->ex.decay);
         if (!a->parent) {
-            a->gravity_vel = addv2f(a->gravity_vel, mulv2nf(a->gravity_accel, dt / 2));
+            a->gravity.vel = a->gravity.vel + (a->gravity.accel * dt / 2);
         } else {
-            a->gravity_vel = _v2f(0,0);
+            a->gravity.vel = 0;
         }
     } else {
-        a->intern_impulse = mulv2f(a->intern_impulse, a->intern_decay);
-        a->extern_impulse = _v2f(0,0);
-        a->gravity_vel = _v2f(0,0);
+        a->in.impulse = mulv2f(a->in.impulse, a->in.decay);
+        a->ex.impulse = _v2f(0,0);
+        a->gravity.vel = 0;
     }
 }
 
 void pf_update_dpos(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
-        a->intern_impulse = clampv2f(sigv2f(a->intern_cap), absv2f(a->intern_cap), a->intern_impulse);
-        a->extern_impulse = clampv2f(sigv2f(a->extern_cap), absv2f(a->extern_cap), a->extern_impulse);
-        a->gravity_vel = clampv2f(sigv2f(a->gravity_cap), absv2f(a->gravity_cap), a->gravity_vel);
+        a->in.impulse = clampv2f(sigv2f(a->in.cap), absv2f(a->in.cap), a->in.impulse);
+        a->ex.impulse = clampv2f(sigv2f(a->ex.cap), absv2f(a->ex.cap), a->ex.impulse);
+        a->gravity.vel = clampf(-a->gravity.cap, a->gravity.cap, a->gravity.vel);
 
-        a->dpos = mulv2nf(a->intern_impulse, dt);
-        a->dpos = addv2f(a->dpos, mulv2nf(a->extern_impulse, dt));
+        a->dpos = mulv2nf(a->in.impulse, dt);
+        a->dpos = addv2f(a->dpos, mulv2nf(a->ex.impulse, dt));
         if (!a->parent) {
-            a->dpos = addv2f(a->dpos, a->gravity_vel);
+            a->dpos = addv2f(a->dpos, pf_gravity_v2f(a->gravity.dir, a->gravity.vel));
         }
     } else {
-        a->intern_impulse = clampv2f(sigv2f(a->intern_cap), absv2f(a->intern_cap), a->intern_impulse);
-        a->dpos = mulv2nf(a->intern_impulse, dt);
+        a->in.impulse = clampv2f(sigv2f(a->in.cap), absv2f(a->in.cap), a->in.impulse);
+        a->dpos = mulv2nf(a->in.impulse, dt);
     }
 }
 
@@ -219,7 +233,7 @@ void pf_integrate_force(float dt, pf_body_t *a) {
     if (!nearzerof(a->inverse_mass)) {
         const v2f velocity = mulv2nf(
             addv2f(mulv2nf(a->force, a->inverse_mass),
-                   a->gravity_rate : _v2f(0,0)),
+                   a->gravity.rate : _v2f(0,0)),
             dt / 2
         );
         a->velocity = a->parent ? velocity : addv2f(a->velocity, velocity);
@@ -253,11 +267,11 @@ void pf_pos_correction(const pf_manifold_t *m, pf_body_t *a,  pf_body_t *b) {
 void pf_apply_manifold(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b) {
     const float inverse_mass_sum = a->inverse_mass + b->inverse_mass;
     if (nearzerof(inverse_mass_sum)) {
-        a->extern_impulse = _v2f(0,0);
-        b->extern_impulse = _v2f(0,0);
+        a->ex.impulse = _v2f(0,0);
+        b->ex.impulse = _v2f(0,0);
         return;
     }
-    v2f rv = subv2f(b->extern_impulse, a->extern_impulse);
+    v2f rv = subv2f(b->ex.impulse, a->ex.impulse);
     const float contact_velocity = dotv2f(rv, m->normal);
     if (contact_velocity > 0) {
         return;
@@ -265,9 +279,9 @@ void pf_apply_manifold(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b) {
     const float e = fminf(a->restitution, b->restitution);
     const float j = (-(1 + e) * contact_velocity) / inverse_mass_sum;
     const v2f impulse = mulv2nf(m->normal, j);
-    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(impulse, a->inverse_mass));
-    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(impulse, b->inverse_mass));
-    rv = subv2f(b->extern_impulse, a->extern_impulse);
+    a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(impulse, a->inverse_mass));
+    b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(impulse, b->inverse_mass));
+    rv = subv2f(b->ex.impulse, a->ex.impulse);
     const v2f t = normv2f(subv2f(rv, mulv2nf(m->normal, dotv2f(rv, m->normal))));
     const float jt = -dotv2f(rv,t) / inverse_mass_sum;
     if (nearzerof(jt)) {
@@ -277,8 +291,8 @@ void pf_apply_manifold(const pf_manifold_t *m, pf_body_t *a, pf_body_t *b) {
         ? jt
         : (-j *m->dynamic_friction);
     const v2f tagent_impulse = mulv2nf(t, k);
-    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(tagent_impulse, a->inverse_mass));
-    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(tagent_impulse, b->inverse_mass));
+    a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(tagent_impulse, a->inverse_mass));
+    b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(tagent_impulse, b->inverse_mass));
 }
 
 /*
@@ -370,15 +384,22 @@ pf_body_t _pf_body() {
         .pos = _v2f(0,0),
         .parent = NULL,
         .dpos = _v2f(0,0),
-        .intern_impulse = fillv2f(0),
-        .intern_decay = fillv2f(0.5),
-        .intern_cap = fillv2f(1000),
-        .extern_impulse = fillv2f(0),
-        .extern_decay = fillv2f(0.3),
-        .extern_cap = fillv2f(1000),
-        .gravity_vel = fillv2f(0),
-        .gravity_accel = _v2f(0, 9.8),
-        .gravity_cap = fillv2f(10),
+        .in = { 
+            .impulse = fillv2f(0),
+            .decay = fillv2f(0.5),
+            .cap = fillv2f(1000),
+        },
+        .ex = {
+            .impulse = fillv2f(0),
+            .decay = fillv2f(0.3),
+            .cap = fillv2f(1000),
+        },
+        .gravity = {
+            .dir = PF_DIR_D,
+            .vel = 0,
+            .accel = 9.8,
+            .cap = 10,
+        },
         .mass = 1,
         .inverse_mass = 1,
         .static_friction = 0.9,

@@ -22,7 +22,6 @@ typedef struct keys_manifold {
 #define CANNON_BALL_RADIUS 1.5
 
 typedef struct world {
-    bool to_release[MAX_BODIES];
     pf_body_t bodies[MAX_BODIES];
     int body_num;
     keys_manifold_t manifolds[MAX_MANIFOLDS];
@@ -77,8 +76,8 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->gravity_accel = _v2f(0, 1);
-        a->gravity_cap = _v2f(0, 1);
+        a->gravity.accel = 1;;
+        a->gravity.cap = 1;
         a->shape = pf_circle(3);
         a->pos = _v2f(4,5);
         pf_bouncy_ball_esque(a);
@@ -89,8 +88,8 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->gravity_accel = _v2f(0, 1);
-        a->gravity_cap = _v2f(0, 1);
+        a->gravity.accel = 1;;
+        a->gravity.cap = 1;
         a->shape = pf_circle(1);
         a->pos = _v2f(2,3);
         pf_super_ball_esque(a);
@@ -101,8 +100,8 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->gravity_accel = _v2f(0, 1);
-        a->gravity_cap = _v2f(0, 1);
+        a->gravity.accel = 1;;
+        a->gravity.cap = 1;
         a->shape = pf_rect(2,3);
         a->pos = _v2f(14,4);
         pf_pillow_esque(a);
@@ -218,29 +217,31 @@ void loop_demo(demo_t *d) {
         pf_body_t *ch = &d->world.bodies[2];
         const float force = 30;
         if (d->input.left) {
-            ch->intern_impulse = _v2f(-force, 0);
+            ch->in.impulse = _v2f(-force, 0);
         }
         if (d->input.right) {
-            ch->intern_impulse = _v2f(force, 0);
+            ch->in.impulse = _v2f(force, 0);
         }
         if (d->input.up) {
-            ch->intern_impulse = _v2f(0, -force);
+            ch->in.impulse = _v2f(0, -force);
         }
         if (d->input.down && !ch->parent) {
-            ch->intern_impulse = _v2f(0, force);
+            ch->in.impulse = _v2f(0, force);
         }
         if (d->input.change_axis) {
             d->world.platform_dir = !d->world.platform_dir;
         }
         //
         step_world(&d->world);
+/*
         printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: (%.2f,%.2f)\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
-            ch->intern_impulse.x, ch->intern_impulse.y,
-            ch->extern_impulse.x, ch->extern_impulse.y,
+            ch->in.impulse.x, ch->in.impulse.y,
+            ch->ex.impulse.x, ch->ex.impulse.y,
             ch->gravity_vel.x, ch->gravity_vel.y,
             (void*)ch->parent
         );
+*/
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -295,15 +296,15 @@ bool try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
         a->shape.tag == PF_SH_RECT &&
-        !nearzerov2f(b->gravity_vel)
+        !nearzerof(b->gravity.vel)
         ) {
-        if (fabsf(b->gravity_vel.x) > fabsf(b->gravity_vel.y)) {
-            if (normf(b->gravity_vel.x) == normf(a->pos.x - b->pos.x)) {
+        if (b->gravity.dir == PF_DIR_L || b->gravity.dir == PF_DIR_R) {
+            if (normf(b->gravity.vel) == normf(a->pos.x - b->pos.x)) {
                 b->parent = a;
                 return true;
             }
         } else {
-            if (normf(b->gravity_vel.y) == normf(a->pos.y - b->pos.y)) {
+            if (normf(b->gravity.vel) == normf(a->pos.y - b->pos.y)) {
                 b->parent = a;
                 return true;
             }
@@ -363,7 +364,7 @@ void move_platforms(world_t *w) {
                     dir = true;
                 }
             }
-            a->intern_impulse = _v2f(dir ? -10 : 10, 0);
+            a->in.impulse = _v2f(dir ? -10 : 10, 0);
         } else {
             if (dir) {
                 if (a->pos.y < 10) {
@@ -374,7 +375,7 @@ void move_platforms(world_t *w) {
                     dir = true;
                 }
             }
-            a->intern_impulse = _v2f(0, dir ? -10 : 10);
+            a->in.impulse = _v2f(0, dir ? -10 : 10);
 
         }
     }
@@ -439,13 +440,13 @@ void solve_object_collisions(world_t *w) {
                 pf_body_t *item = &w->bodies[1]; // small circle
                 // bounce off other dynamic bodies
                 if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
-                    a->extern_impulse = subv2f(a->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
-                    b->extern_impulse = addv2f(b->extern_impulse, mulv2nf(m->normal, m->penetration / w->iterations));
+                    a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
+                    b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
                 }
                 if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
                     // don't let player bodies 'pop-up' if they're on a platform (which might be moving)
-                    a->extern_impulse.y = 0;
-                    b->extern_impulse.y = 0;
+                    a->ex.impulse.y = 0;
+                    b->ex.impulse.y = 0;
                 }
                 pf_apply_manifold(m, a, b);
             }
