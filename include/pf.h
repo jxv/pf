@@ -6,26 +6,26 @@
 #include <ml.h>
 
 typedef struct pf_aabb {
-	v2f min;
-	v2f max;
+    v2f min;
+    v2f max;
 } pf_aabb_t;
 
 typedef enum pf_shape_tag {
-	PF_SH_RECT,
-	PF_SH_CIRCLE,
+    PF_SH_RECT,
+    PF_SH_CIRCLE,
 } pf_shape_tag_t;
 
 typedef struct pf_shape {
-	pf_shape_tag_t tag;
-	union {
-		v2f radii;
-		float radius;
-	};
+    pf_shape_tag_t tag;
+    union {
+        v2f radii;
+        float radius;
+    };
 } pf_shape_t;
 
 typedef enum pf_body_mode {
-	PF_BM_STATIC,
-	PF_BM_DYNAMIC,
+    PF_BM_STATIC,
+    PF_BM_DYNAMIC,
 } pf_body_mode_t;
 
 typedef enum pf_group {
@@ -57,27 +57,27 @@ typedef struct pf_gravity {
 } pf_gravity_t;
 
 typedef struct pf_body {
-	pf_body_mode_t mode;
-	pf_shape_t shape;
-	v2f pos;
+    pf_body_mode_t mode;
+    pf_shape_t shape;
+    v2f pos;
     struct pf_body *parent;
     v2f dpos;           // change of position
     pf_force_t in;
     pf_force_t ex;
     pf_gravity_t gravity;
-	float mass;
-	float inverse_mass;
-	float static_friction;
-	float dynamic_friction;
-	float restitution;
+    float mass;
+    float inverse_mass;
+    float static_friction;
+    float dynamic_friction;
+    float restitution;
 } pf_body_t;
 
 typedef struct pf_manifold {
-	v2f normal;
-	float penetration;
-	float mixed_restitution;
-	float dynamic_friction;
-	float static_friction;
+    v2f normal;
+    float penetration;
+    float mixed_restitution;
+    float dynamic_friction;
+    float static_friction;
 } pf_manifold_t;
 
 bool pf_intersect(const pf_aabb_t *a, const pf_aabb_t *b);
