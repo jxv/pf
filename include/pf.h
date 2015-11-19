@@ -17,15 +17,16 @@ typedef enum {
 } pf_shape_tag;
 
 typedef enum {
-    PF_HYPOTENUSE_TL,
-    PF_HYPOTENUSE_TR,
-    PF_HYPOTENUSE_BL,
-    PF_HYPOTENUSE_BR,
-} pf_hypotenuse;
+    PF_CORNER_UL,   // up-left
+    PF_CORNER_UR,   // up-right
+    PF_CORNER_DL,   // down-left
+    PF_CORNER_DR,   // down-right
+} pf_corner;
 
 typedef struct {
     v2f radii;
-    pf_hypotenuse h;
+    pf_corner hypotenuse;
+    float slope;
 } pf_tri;
 
 typedef struct {
@@ -147,6 +148,7 @@ void pf_super_ball_esque(pf_body *a);
 void pf_pillow_esque(pf_body *a);
 void pf_static_esque(pf_body *a);
 
+pf_tri _pf_tri(v2f radii, pf_corner hypotenuse);
 pf_body _pf_body();
 pf_shape pf_circle(float radius);
 pf_shape pf_box(float side);
