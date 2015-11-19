@@ -6,48 +6,48 @@
 #include <SDL2/SDL.h>
 #include <math.h>
 
-typedef struct key_body {
+typedef struct {
     int key;
-    const pf_body_t *body;
-} key_body_t;
+    const pf_body *body;
+} key_body;
 
-typedef struct keys_manifold {
+typedef struct {
     int a_key;
     int b_key;
-    pf_manifold_t manifold;
-} keys_manifold_t;
+    pf_manifold manifold;
+} keys_manifold;
 
 #define MAX_BODIES 4096 /* So many bodies */
 #define MAX_MANIFOLDS (MAX_BODIES * 2) /* Large enough */
 #define CANNON_BALL_RADIUS 1.5
 
-typedef struct world {
-    pf_body_t bodies[MAX_BODIES];
+typedef struct {
+    pf_body bodies[MAX_BODIES];
     int body_num;
-    keys_manifold_t manifolds[MAX_MANIFOLDS];
+    keys_manifold manifolds[MAX_MANIFOLDS];
     int manifold_num;
     float dt;
     int iterations;
     bool platform_dir;
-} world_t;
+} world;
 
-typedef struct input {
+typedef struct {
     bool quit;
     bool left;
     bool right;
     bool up;
     bool down;
     bool change_axis;
-} input_t;
+} input;
 
-typedef struct demo {
+typedef struct {
     SDL_Renderer *renderer;
-    world_t world;
-    input_t input;
-} demo_t;
+    world world;
+    input input;
+} demo;
 
-void make_demo(demo_t *d, SDL_Renderer *renderer);
-void loop_demo(demo_t *d);
+void make_demo(demo *d, SDL_Renderer *renderer);
+void loop_demo(demo *d);
 
 int main() {
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
@@ -55,7 +55,7 @@ int main() {
     }
     SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320, 240, 0);
     SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
-    demo_t demo;
+    demo demo;
     make_demo(&demo, renderer);
     loop_demo(&demo);
     SDL_DestroyRenderer(renderer);
@@ -64,7 +64,7 @@ int main() {
     return EXIT_SUCCESS;
 }
 
-void make_world(world_t *w) {
+void make_world(world *w) {
     w->body_num = 0;
     w->manifold_num = 0;
     w->dt = 1.0 / 60.0;
@@ -73,7 +73,7 @@ void make_world(world_t *w) {
 
     // Large circle
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->gravity.accel = 1;;
@@ -85,7 +85,7 @@ void make_world(world_t *w) {
 
     // Small circle
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->gravity.accel = 1;;
@@ -97,7 +97,7 @@ void make_world(world_t *w) {
 
     // Rectangle
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->gravity.accel = 1;;
@@ -109,7 +109,7 @@ void make_world(world_t *w) {
 
     // Platform
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
@@ -121,7 +121,7 @@ void make_world(world_t *w) {
     // Walls
     // Top
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
@@ -131,7 +131,7 @@ void make_world(world_t *w) {
     }
     // Bottom
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
@@ -141,7 +141,7 @@ void make_world(world_t *w) {
     }
     // Left
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
@@ -151,7 +151,7 @@ void make_world(world_t *w) {
     }
     // Right
     {
-        pf_body_t *a = &w->bodies[w->body_num];
+        pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
@@ -163,69 +163,68 @@ void make_world(world_t *w) {
 
 }
 
-void make_demo(demo_t *d, SDL_Renderer *renderer) {
+void make_demo(demo *d, SDL_Renderer *renderer) {
     d->renderer = renderer;
     make_world(&d->world);
 }
 
-void read_input(struct input *input) {
+void read_input(input *inp) {
     SDL_Event event;
-    memset(input, 0, sizeof(input_t));
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_KEYDOWN) {
-            switch (event.key.keysym.sym) {
-            case SDLK_ESCAPE:
-                input->quit = true;
-                break;
-            case SDLK_LEFT:
-                input->left = true;
-                break;
-            case SDLK_UP:
-                input->up = true;
-                break;
-            case SDLK_RIGHT:
-                input->right = true;
-                break;
-            case SDLK_DOWN:
-                input->down = true;
-                break;
-            case SDLK_SPACE:
-                input->change_axis = true;
-                break;
-            default:
-                break;
+        memset(inp, 0, sizeof(*inp));
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                case SDLK_ESCAPE:
+                    inp->quit = true;
+                    break;
+                case SDLK_LEFT:
+                    inp->left = true;
+                    break;
+                case SDLK_UP:
+                    inp->up = true;
+                    break;
+                case SDLK_RIGHT:
+                    inp->right = true;
+                    break;
+                case SDLK_DOWN:
+                    inp->down = true;
+                    break;
+                case SDLK_SPACE:
+                    inp->change_axis = true;
+                    break;
+                default:
+                    break;
+                }
             }
         }
     }
-}
 
-unsigned int delay_time(unsigned int goal, unsigned int start,
-            unsigned int end) {
-    const unsigned int frame = end - start;
-    return frame >= goal ? 0 : (goal - frame);
-}
+    unsigned int delay_time(unsigned int goal, unsigned int start, unsigned int end) {
+        const unsigned int frame = end - start;
+        return frame >= goal ? 0 : (goal - frame);
+    }
 
-void step_world(world_t *w);
-void render_demo(demo_t *d);
+    void step_world(world *w);
+    void render_demo(demo *d);
 
-void loop_demo(demo_t *d) {
-    d->input.quit = false;
-    do {
-        const unsigned int start_tick = SDL_GetTicks();
-        read_input(&d->input);
-        //
-        pf_body_t *ch = &d->world.bodies[2];
-        const float force = 30;
-        if (d->input.left) {
-            ch->in.impulse = _v2f(-force, 0);
-        }
-        if (d->input.right) {
-            ch->in.impulse = _v2f(force, 0);
-        }
-        if (d->input.up) {
-            ch->in.impulse = _v2f(0, -force);
-        }
-        if (d->input.down && !ch->parent) {
+    void loop_demo(demo *d) {
+        d->input.quit = false;
+        do {
+            const unsigned int start_tick = SDL_GetTicks();
+            read_input(&d->input);
+            //
+            pf_body *ch = &d->world.bodies[2];
+            const float force = 30;
+            if (d->input.left) {
+                ch->in.impulse = _v2f(-force, 0);
+            }
+            if (d->input.right) {
+                ch->in.impulse = _v2f(force, 0);
+            }
+            if (d->input.up) {
+                ch->in.impulse = _v2f(0, -force);
+            }
+            if (d->input.down && !ch->group.object.parent) {
             ch->in.impulse = _v2f(0, force);
         }
         if (d->input.change_axis) {
@@ -251,20 +250,20 @@ void loop_demo(demo_t *d) {
     } while (!d->input.quit);
 }
 
-void object_platform_relations(world_t *w);
-void move_platforms(world_t *w);
-void update_object_positions_on_platforms(world_t *w);
-void generate_collisions(world_t *w);
-void step_forces(world_t *w);
-void update_dpos(world_t *w);
-void integrate_forces(world_t *w);
-void solve_object_collisions(world_t *w);
-void solve_platform_collisions(world_t *w);
-void apply_dpos(world_t *w);
-void correct_positions(world_t *w);
-void reset_collisions(world_t *w);
+void object_platform_relations(world *w);
+void move_platforms(world *w);
+void update_object_positions_on_platforms(world *w);
+void generate_collisions(world *w);
+void step_forces(world *w);
+void update_dpos(world *w);
+void integrate_forces(world *w);
+void solve_object_collisions(world *w);
+void solve_platform_collisions(world *w);
+void apply_dpos(world *w);
+void correct_positions(world *w);
+void reset_collisions(world *w);
 
-void step_world(world_t *w) {
+void step_world(world *w) {
     // Define objects and platforms relationships
     object_platform_relations(w);
     // Move platforms (no collisions)
@@ -292,7 +291,7 @@ float normf(float x) {
     return nearzerof(x) ? 0 : (x > 0 ? 1 : -1);
 }
 
-bool try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
+bool try_child_connect_parent(pf_body *a, pf_body *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
         a->shape.tag == PF_SHAPE_RECT &&
@@ -300,12 +299,12 @@ bool try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
         ) {
         if (b->gravity.dir == PF_DIR_L || b->gravity.dir == PF_DIR_R) {
             if (normf(b->gravity.vel) == normf(a->pos.x - b->pos.x)) {
-                b->parent = a;
+                b->group.object.parent = a;
                 return true;
             }
         } else {
             if (normf(b->gravity.vel) == normf(a->pos.y - b->pos.y)) {
-                b->parent = a;
+                b->group.object.parent = a;
                 return true;
             }
         }
@@ -313,24 +312,24 @@ bool try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
     return false;
 }
 
-void object_platform_relations(world_t *w) {
+void object_platform_relations(world *w) {
     for (int i = 0; i < w->body_num; i++) {
-        pf_body_t *a = &w->bodies[i];
-        pf_manifold_t m;
+        pf_body *a = &w->bodies[i];
+        pf_manifold m;
 
         // Decide to detach from parent
-        if (a->parent) {
-            if (!pf_solve_collision(a, a->parent, &m)) {
-                a->parent = NULL;
+        if (a->group.object.parent) {
+            if (!pf_solve_collision(a, a->group.object.parent, &m)) {
+                a->group.object.parent = NULL;
             }
         }
-        if (a->parent) {
+        if (a->group.object.parent) {
             continue;
         }
 
         // Find parent to to attach
         for (int j = i + 1; j < w->body_num; j++) {
-            pf_body_t *b = &w->bodies[j];
+            pf_body *b = &w->bodies[j];
             if ((a->mass == 0 && b->mass == 0)) {
                 continue;
             }
@@ -350,10 +349,10 @@ void object_platform_relations(world_t *w) {
 
 
 
-void move_platforms(world_t *w) {
+void move_platforms(world *w) {
     {
         static bool dir = false;
-        pf_body_t *a = &w->bodies[3];
+        pf_body *a = &w->bodies[3];
         if (w->platform_dir) {
             if (dir) {
                 if (a->pos.x < 0) {
@@ -388,25 +387,25 @@ void move_platforms(world_t *w) {
     }
 }
 
-void update_object_positions_on_platforms(world_t *w) {
+void update_object_positions_on_platforms(world *w) {
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_DYNAMIC &&
-            w->bodies[i].parent &&
-            w->bodies[i].parent->mode == PF_MODE_STATIC) {
-            w->bodies[i].pos = addv2f(w->bodies[i].pos, w->bodies[i].parent->dpos);
+            w->bodies[i].group.object.parent &&
+            w->bodies[i].group.object.parent->mode == PF_MODE_STATIC) {
+            w->bodies[i].pos = addv2f(w->bodies[i].pos, w->bodies[i].group.object.parent->dpos);
         }
     }
 }
 
-void generate_collisions(world_t *w) {
+void generate_collisions(world *w) {
     for (int i = 0; i < w->body_num; i++) {
-        const pf_body_t *a = &w->bodies[i];
+        const pf_body *a = &w->bodies[i];
         for (int j = i + 1; j < w->body_num; j++) {
-            const pf_body_t *b = &w->bodies[j];
+            const pf_body *b = &w->bodies[j];
             if (a->mass == 0 && b->mass == 0) {
                 continue;
             }
-            struct keys_manifold *km = &w->manifolds[w->manifold_num];
+            keys_manifold *km = &w->manifolds[w->manifold_num];
             if (pf_solve_collision(a, b, &km->manifold)) {
                 km->a_key = i;
                 km->b_key = j;
@@ -419,7 +418,7 @@ void generate_collisions(world_t *w) {
     }
 }
 
-void step_forces(world_t *w) {
+void step_forces(world *w) {
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
             pf_step_forces(w->dt, &w->bodies[i]);
@@ -427,17 +426,17 @@ void step_forces(world_t *w) {
     }
 }
 
-void solve_object_collisions(world_t *w) {
+void solve_object_collisions(world *w) {
     for (int it = 0; it < w->iterations; it++) {
         for (int i = 0; i < w->manifold_num; i++) {
-            const keys_manifold_t *km = &w->manifolds[i];
-            const pf_manifold_t *m = &km->manifold;
-            pf_body_t *a = &w->bodies[km->a_key];
-            pf_body_t *b = &w->bodies[km->b_key];
+            const keys_manifold *km = &w->manifolds[i];
+            const pf_manifold *m = &km->manifold;
+            pf_body *a = &w->bodies[km->a_key];
+            pf_body *b = &w->bodies[km->b_key];
 
             if (!((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
-                 (a->parent != b && b->parent != a))) {
-                pf_body_t *item = &w->bodies[1]; // small circle
+                 (a->group.object.parent != b && b->group.object.parent != a))) {
+                pf_body *item = &w->bodies[1]; // small circle
                 // bounce off other dynamic bodies
                 if (a != item && b != item && a->mode == PF_MODE_DYNAMIC && b->mode == PF_MODE_DYNAMIC) {
                     a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
@@ -454,16 +453,16 @@ void solve_object_collisions(world_t *w) {
     }
 }
 
-void solve_platform_collisions(world_t *w) {
+void solve_platform_collisions(world *w) {
     for (int it = 0; it < w->iterations; it++) {
         for (int i = 0; i < w->manifold_num; i++) {
-            const keys_manifold_t *km = &w->manifolds[i];
-            const pf_manifold_t *m = &km->manifold;
-            pf_body_t *a = &w->bodies[km->a_key];
-            pf_body_t *b = &w->bodies[km->b_key];
+            const keys_manifold *km = &w->manifolds[i];
+            const pf_manifold *m = &km->manifold;
+            pf_body *a = &w->bodies[km->a_key];
+            pf_body *b = &w->bodies[km->b_key];
 
             if ((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
-                (a->parent != b && b->parent != a)) {
+                (a->group.object.parent != b && b->group.object.parent != a)) {
                 if (b->mode == PF_MODE_STATIC)
                     a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
                 if (a->mode == PF_MODE_STATIC)
@@ -473,7 +472,7 @@ void solve_platform_collisions(world_t *w) {
     }
 }
 
-void update_dpos(world_t *w) {
+void update_dpos(world *w) {
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
             pf_update_dpos(w->dt, &w->bodies[i]);
@@ -481,7 +480,7 @@ void update_dpos(world_t *w) {
     }
 }
 
-void apply_dpos(world_t *w) {
+void apply_dpos(world *w) {
     //printf("%d: %f, %f\n", 2, w->bodies[2].pos.x, w->bodies[2].pos.y);
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
@@ -490,28 +489,28 @@ void apply_dpos(world_t *w) {
     }
 }
 
-void correct_positions(world_t *w) {
+void correct_positions(world *w) {
     for (int i = 0; i < w->manifold_num; i++) {
-        const struct keys_manifold *km = &w->manifolds[i];
-        const pf_manifold_t *m = &km->manifold;
-        pf_body_t *a = &w->bodies[km->a_key];
-        pf_body_t *b = &w->bodies[km->b_key];
+        const keys_manifold *km = &w->manifolds[i];
+        const pf_manifold *m = &km->manifold;
+        pf_body *a = &w->bodies[km->a_key];
+        pf_body *b = &w->bodies[km->b_key];
         if (a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) {
             pf_pos_correction(m, a, b);
         }
     }
 }
 
-void reset_collisions(world_t *w) {
+void reset_collisions(world *w) {
     w->manifold_num = 0;
 }
 
-void render_demo(demo_t *d) {
+void render_demo(demo *d) {
     SDL_SetRenderDrawColor(d->renderer, 0x00, 0x00, 0x00, 0xff);
     SDL_RenderClear(d->renderer);
     SDL_SetRenderDrawColor(d->renderer, 0xff, 0xff, 0xff, 0xff);
     for (int i = 0; i < d->world.body_num; i++) {
-        const pf_body_t *a = &d->world.bodies[i];
+        const pf_body *a = &d->world.bodies[i];
         switch (a->shape.tag) {
         case PF_SHAPE_RECT: {
             SDL_Rect rect = {
