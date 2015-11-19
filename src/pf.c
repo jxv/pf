@@ -163,18 +163,16 @@ bool pf_test_tri_dr(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
         pf_point_in_tri_dr(a->max.x, a->max.y, &ul, offset, slope);
 }
 
-bool pf_test_tri(const pf_aabb *a, const pf_body *b) {
-    assert(b->shape.tag == PF_SHAPE_TRI);
-    const pf_tri *t = &b->shape.tri;
+bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
-        return pf_test_tri_ul(a, &b->pos, &b->shape.tri.radii, b->shape.tri.slope);
+        return pf_test_tri_ul(a, pos, &t->radii, t->slope);
     case PF_CORNER_UR:
-        return pf_test_tri_ur(a, &b->pos, &b->shape.tri.radii, b->shape.tri.slope);
+        return pf_test_tri_ur(a, pos, &t->radii, t->slope);
     case PF_CORNER_DL:
-        return pf_test_tri_dl(a, &b->pos, &b->shape.tri.radii, b->shape.tri.slope);
+        return pf_test_tri_dl(a, pos, &t->radii, t->slope);
     case PF_CORNER_DR:
-        return pf_test_tri_dr(a, &b->pos, &b->shape.tri.radii, b->shape.tri.slope);
+        return pf_test_tri_dr(a, pos, &t->radii, t->slope);
     default:
         assert(false);
     }
@@ -187,7 +185,7 @@ bool pf_test_body(const pf_aabb *a, const pf_body *b) {
     case PF_SHAPE_CIRCLE:
         return pf_test_circle(a, b);
     case PF_SHAPE_TRI:
-        return pf_test_tri(a, b);
+        return pf_test_tri(a, &b->pos, &b->shape.tri);
     default:
         assert(false);
     }
