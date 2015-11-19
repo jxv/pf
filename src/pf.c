@@ -14,53 +14,47 @@ bool pf_inside(const v2f *a, const pf_aabb *b) {
         a->y >= b->min.y && a->y <= b->max.y;
 }
 
-pf_aabb pf_rect_to_aabb(const pf_shape *sh);
-pf_aabb pf_circle_to_aabb(const pf_shape *sh);
+
+pf_aabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
+    return (pf_aabb) {
+        .min = subv2f(*pos, *radii),
+        .max = addv2f(*pos, *radii)
+    };
+}
+
+pf_aabb pf_circle_to_aabb(const v2f *pos, float radius) {
+    return (pf_aabb) {
+        .min = subv2nf(*pos, radius),
+        .max = divv2nf(*pos, radius)
+    };
+}
+
+pf_aabb pf_tri_to_aabb(const v2f *pos, const pf_tri *tri) {
+    return (pf_aabb) {
+        .min = subv2f(*pos, tri->radii),
+        .max = divv2f(*pos, tri->radii)
+    };
+}
+
+pf_aabb pf_shape_to_aabb(const v2f *pos, const pf_shape *sh) {
+    switch (sh->tag) {
+    case PF_SHAPE_RECT:
+        return pf_rect_to_aabb(pos, &sh->radii);
+    case PF_SHAPE_CIRCLE:
+        return pf_circle_to_aabb(pos, sh->radius);
+    case PF_SHAPE_TRI:
+        return pf_tri_to_aabb(pos, &sh->tri);
+    default:
+        assert(false);
+    }
+}
 
 pf_aabb pf_body_to_aabb(const pf_body *a) {
-    switch (a->shape.tag) {
-    case PF_SHAPE_RECT:
-        return pf_rect_to_aabb(a);
-    case PF_SHAPE_CIRCLE:
-        return pf_circle_to_aabb(a);
-    default:
-        assert(false);
-    }
-}
-
-pf_aabb pf_rect_to_aabb(const pf_body *a) {
-    return (pf_aabb) {
-        .min = subv2f(a->pos, a->shape.radii),
-        .max = addv2f(a->pos, a->shape.radii)
-    };
-}
-
-pf_aabb pf_circle_to_aabb(const pf_body *a) {
-    return (pf_aabb) {
-        .min = subv2nf(a->pos, a->shape.radius),
-        .max = divv2nf(a->pos, a->shape.radius)
-    };
-}
-
-pf_aabb pf_shape_to_aabb(const v2f *pos, const *pf_shape *sh) {
-}
-
-bool pf_test_rect(const pf_aabb *a, const pf_body *b);
-bool pf_test_circle(const pf_aabb *a, const pf_body *b);
-
-bool pf_test_body(const pf_aabb *a, const pf_body *b) {
-    switch (b->shape.tag) {
-    case PF_SHAPE_RECT:
-        return pf_test_rect(a, b);
-    case PF_SHAPE_CIRCLE:
-        return pf_test_circle(a, b);
-    default:
-        assert(false);
-    }
+    return pf_shape_to_aabb(&a->pos, &a->shape);
 }
 
 bool pf_test_rect(const pf_aabb *a, const pf_body *b) {
-    const pf_aabb rect = pf_rect_to_aabb(b);
+    const pf_aabb rect = pf_body_to_aabb(b);
     return pf_intersect(a, &rect);
 }
 
@@ -72,6 +66,17 @@ bool pf_test_circle(const pf_aabb *a, const pf_body *b) {
     const v2f normal = subv2f(pos_diff, closest);
     float dist_sq = sqlenv2f(normal);
     return inside || dist_sq <= (radius *radius);
+}
+
+bool pf_test_body(const pf_aabb *a, const pf_body *b) {
+    switch (b->shape.tag) {
+    case PF_SHAPE_RECT:
+        return pf_test_rect(a, b);
+    case PF_SHAPE_CIRCLE:
+        return pf_test_circle(a, b);
+    default:
+        assert(false);
+    }
 }
 
 bool pf_body_to_body_swap(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
@@ -116,8 +121,8 @@ bool pf_body_to_body_swap(const pf_body *a, const pf_body *b, v2f *normal, float
 bool pf_rect_to_rect(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     const v2f n = subv2f(b->pos, a->pos);
     const v2f overlap = subv2f(addv2f(a->shape.radii, b->shape.radii), absv2f(n));
-    const pf_aabb a_shape = pf_rect_to_aabb(a);
-    const pf_aabb b_shape = pf_rect_to_aabb(b);
+    const pf_aabb a_shape = pf_body_to_aabb(a);
+    const pf_aabb b_shape = pf_body_to_aabb(b);
     if (!pf_intersect(&a_shape, &b_shape)) {
         return false;
     } else if (fabsf(overlap.x) < fabsf(overlap.y)) {

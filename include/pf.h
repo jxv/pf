@@ -13,7 +13,7 @@ typedef struct {
 typedef enum {
     PF_SHAPE_RECT,
     PF_SHAPE_CIRCLE,
-//    PF_SHAPE_TRI,
+    PF_SHAPE_TRI,
 } pf_shape_tag;
 
 typedef enum {
