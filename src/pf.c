@@ -19,8 +19,8 @@ pf_aabb_t pf_circle_to_aabb(const pf_body_t *a);
 
 pf_aabb_t pf_body_to_aabb(const pf_body_t *a) {
     switch (a->shape.tag) {
-    case PF_SH_RECT: return pf_rect_to_aabb(a);
-    case PF_SH_CIRCLE: return pf_circle_to_aabb(a);
+    case PF_SHAPE_RECT: return pf_rect_to_aabb(a);
+    case PF_SHAPE_CIRCLE: return pf_circle_to_aabb(a);
     default: assert(false);
     }
 }
@@ -44,8 +44,8 @@ bool pf_test_circle(const pf_aabb_t *a, const pf_body_t *b);
 
 bool pf_test_body(const pf_aabb_t *a, const pf_body_t *b) {
     switch (b->shape.tag) {
-    case PF_SH_RECT: return pf_test_rect(a, b);
-    case PF_SH_CIRCLE: return pf_test_circle(a, b);
+    case PF_SHAPE_RECT: return pf_test_rect(a, b);
+    case PF_SHAPE_CIRCLE: return pf_test_circle(a, b);
     default: assert(false);
     }
 }
@@ -73,19 +73,19 @@ bool pf_circle_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, fl
 bool pf_body_to_body(const pf_body_t *a, const pf_body_t *b,
              v2f *normal, float *penetration) {
     switch (a->shape.tag) {
-    case PF_SH_RECT:
+    case PF_SHAPE_RECT:
         switch (b->shape.tag) {
-        case PF_SH_RECT:
+        case PF_SHAPE_RECT:
             return pf_rect_to_rect(a, b, normal, penetration);
-        case PF_SH_CIRCLE:
+        case PF_SHAPE_CIRCLE:
             return pf_rect_to_circle(a, b, normal, penetration);
         default: assert(false);
         }
-    case PF_SH_CIRCLE:
+    case PF_SHAPE_CIRCLE:
         switch (b->shape.tag) {
-        case PF_SH_RECT:
+        case PF_SHAPE_RECT:
             return pf_body_to_body_swap(a, b, normal, penetration);
-        case PF_SH_CIRCLE:
+        case PF_SHAPE_CIRCLE:
             return pf_circle_to_circle(a, b, normal, penetration);
         default: assert(false);
         }
@@ -127,7 +127,7 @@ bool pf_rect_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, floa
     if ((out_lf || out_rt) && (out_up || out_dn)) {
         /* Treat as (circle/corner_point)_to_circle collision */
         pf_body_t a_ = *a;
-        a_.shape.tag = PF_SH_CIRCLE;
+        a_.shape.tag = PF_SHAPE_CIRCLE;
         a_.shape.radius = 0;
         a_.pos.x += out_lf ? -a->shape.radii.x : a->shape.radii.x;
         a_.pos.y += out_up ? -a->shape.radii.y : a->shape.radii.y;
@@ -135,7 +135,7 @@ bool pf_rect_to_circle(const pf_body_t *a, const pf_body_t *b, v2f *normal, floa
     } else {
         /* Treat as pf_rect_to_rect collision */
         pf_body_t b_ = *b;
-        b_.shape.tag = PF_SH_RECT;
+        b_.shape.tag = PF_SHAPE_RECT;
         b_.shape.radii = _v2f(b->shape.radius, b->shape.radius);
         return pf_rect_to_rect(a, &b_, normal, penetration);
     }
@@ -335,8 +335,8 @@ void pf_body_set_mass(float mass, pf_body_t *a) {
 
 float pf_mass_from_density(float density, const pf_shape_t shape) {
     switch (shape.tag) {
-    case PF_SH_RECT: return density * shape.radii.x * shape.radii.y;
-    case PF_SH_CIRCLE: return density * M_PI *shape.radius *shape.radius;
+    case PF_SHAPE_RECT: return density * shape.radii.x * shape.radii.y;
+    case PF_SHAPE_CIRCLE: return density * M_PI *shape.radius *shape.radius;
     default: assert(false);
     }
 }
@@ -376,9 +376,9 @@ void pf_static_esque(pf_body_t *a) {
 
 pf_body_t _pf_body() {
     return (pf_body_t) {
-        .mode = PF_BM_DYNAMIC,
+        .mode = PF_MODE_DYNAMIC,
         .shape = (pf_shape_t) {
-                .tag = PF_SH_CIRCLE,
+                .tag = PF_SHAPE_CIRCLE,
                 .radius = 0
             },
         .pos = _v2f(0,0),
@@ -410,21 +410,21 @@ pf_body_t _pf_body() {
 
 pf_shape_t pf_circle(float radius) {
     return (pf_shape_t) {
-        .tag = PF_SH_CIRCLE,
+        .tag = PF_SHAPE_CIRCLE,
         .radius = radius,
     };
 }
 
 pf_shape_t pf_box(float side) {
     return (pf_shape_t) {
-        .tag = PF_SH_RECT,
+        .tag = PF_SHAPE_RECT,
         .radii = _v2f(side, side),
     };
 }
 
 pf_shape_t pf_rect(float w, float h) {
     return (pf_shape_t) {
-        .tag = PF_SH_RECT,
+        .tag = PF_SHAPE_RECT,
         .radii = _v2f(w, h),
     };
 }

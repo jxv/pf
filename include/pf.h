@@ -11,8 +11,8 @@ typedef struct pf_aabb {
 } pf_aabb_t;
 
 typedef enum pf_shape_tag {
-    PF_SH_RECT,
-    PF_SH_CIRCLE,
+    PF_SHAPE_RECT,
+    PF_SHAPE_CIRCLE,
 } pf_shape_tag_t;
 
 typedef struct pf_shape {
@@ -23,18 +23,22 @@ typedef struct pf_shape {
     };
 } pf_shape_t;
 
-typedef enum pf_body_mode {
-    PF_BM_STATIC,
-    PF_BM_DYNAMIC,
-} pf_body_mode_t;
+typedef enum pf_mode {
+    PF_MODE_STATIC,
+    PF_MODE_DYNAMIC,
+} pf_mode_t;
 
 typedef enum pf_group {
-    PF_GROUP_NO_WAY_PLATFORM,   // solid platform
-    PF_GROUP_UP_WAY_PLATFORM,   // jump-up-onto only platform
-    PF_GROUP_TWO_WAY_PLATFORM,  // jump-up and jump-down platform
-    PF_GROUP_CHARACTER,         // character
-    PF_GROUP_OBJECT,            // object (eg. items, projectiles)
+    PF_GROUP_PLATFORM,
+    PF_GROUP_CHARACTER,
+    PF_GROUP_OBJECT,
 } pf_group_t;
+
+typedef enum pf_platform {
+    PF_PLATFORM_NO_WAY,     // Solid platform
+    PF_PLATFORM_ONE_WAY,    // Jump-up-onto only platform
+    PF_PLATFORM_TWO_WAY,    // Jump-up and jump-down platform
+} pf_platform_t;
 
 typedef enum pf_dir {
     PF_DIR_U,
@@ -57,13 +61,14 @@ typedef struct pf_gravity {
 } pf_gravity_t;
 
 typedef struct pf_body {
-    pf_body_mode_t mode;
+    pf_mode_t mode;
+    pf_group_t group;
     pf_shape_t shape;
     v2f pos;
     struct pf_body *parent;
-    v2f dpos;           // change of position
-    pf_force_t in;
-    pf_force_t ex;
+    v2f dpos;               // Change of position
+    pf_force_t in;          // Internal/automonous
+    pf_force_t ex;          // External
     pf_gravity_t gravity;
     float mass;
     float inverse_mass;

@@ -112,7 +112,7 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->mode = PF_BM_STATIC;
+        a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(7,1);
         a->pos = _v2f(8,16.25);
@@ -124,7 +124,7 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->mode = PF_BM_STATIC;
+        a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(32,0.5);
         a->pos = _v2f(0,0);
@@ -134,7 +134,7 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->mode = PF_BM_STATIC;
+        a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(32,0.5);
         a->pos = _v2f(0,24);
@@ -144,7 +144,7 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->mode = PF_BM_STATIC;
+        a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(0.5,24);
         a->pos = _v2f(0,0);
@@ -154,9 +154,9 @@ void make_world(world_t *w) {
         pf_body_t *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->mode = PF_BM_STATIC;
+        a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->mode = PF_BM_STATIC;
+        a->mode = PF_MODE_STATIC;
         a->shape = pf_rect(0.5,24);
         a->pos = _v2f(32,0);
     }
@@ -295,7 +295,7 @@ float normf(float x) {
 bool try_child_connect_parent(pf_body_t *a, pf_body_t *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
-        a->shape.tag == PF_SH_RECT &&
+        a->shape.tag == PF_SHAPE_RECT &&
         !nearzerof(b->gravity.vel)
         ) {
         if (b->gravity.dir == PF_DIR_L || b->gravity.dir == PF_DIR_R) {
@@ -380,7 +380,7 @@ void move_platforms(world_t *w) {
         }
     }
     for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_BM_STATIC) {
+        if (w->bodies[i].mode == PF_MODE_STATIC) {
             pf_update_dpos(w->dt, &w->bodies[i]);
             pf_apply_dpos(&w->bodies[i]);
             pf_step_forces(w->dt, &w->bodies[i]);
@@ -390,9 +390,9 @@ void move_platforms(world_t *w) {
 
 void update_object_positions_on_platforms(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_BM_DYNAMIC &&
+        if (w->bodies[i].mode == PF_MODE_DYNAMIC &&
             w->bodies[i].parent &&
-            w->bodies[i].parent->mode == PF_BM_STATIC) {
+            w->bodies[i].parent->mode == PF_MODE_STATIC) {
             w->bodies[i].pos = addv2f(w->bodies[i].pos, w->bodies[i].parent->dpos);
         }
     }
@@ -421,7 +421,7 @@ void generate_collisions(world_t *w) {
 
 void step_forces(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
+        if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
             pf_step_forces(w->dt, &w->bodies[i]);
         }
     }
@@ -435,15 +435,15 @@ void solve_object_collisions(world_t *w) {
             pf_body_t *a = &w->bodies[km->a_key];
             pf_body_t *b = &w->bodies[km->b_key];
 
-            if (!((a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) &&
+            if (!((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
                  (a->parent != b && b->parent != a))) {
                 pf_body_t *item = &w->bodies[1]; // small circle
                 // bounce off other dynamic bodies
-                if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
+                if (a != item && b != item && a->mode == PF_MODE_DYNAMIC && b->mode == PF_MODE_DYNAMIC) {
                     a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
                     b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
                 }
-                if (a != item && b != item && a->mode == PF_BM_DYNAMIC && b->mode == PF_BM_DYNAMIC) {
+                if (a != item && b != item && a->mode == PF_MODE_DYNAMIC && b->mode == PF_MODE_DYNAMIC) {
                     // don't let player bodies 'pop-up' if they're on a platform (which might be moving)
                     a->ex.impulse.y = 0;
                     b->ex.impulse.y = 0;
@@ -462,11 +462,11 @@ void solve_platform_collisions(world_t *w) {
             pf_body_t *a = &w->bodies[km->a_key];
             pf_body_t *b = &w->bodies[km->b_key];
 
-            if ((a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) &&
+            if ((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
                 (a->parent != b && b->parent != a)) {
-                if (b->mode == PF_BM_STATIC)
+                if (b->mode == PF_MODE_STATIC)
                     a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
-                if (a->mode == PF_BM_STATIC)
+                if (a->mode == PF_MODE_STATIC)
                     b->pos = addv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
             }
         }
@@ -475,7 +475,7 @@ void solve_platform_collisions(world_t *w) {
 
 void update_dpos(world_t *w) {
     for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
+        if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
             pf_update_dpos(w->dt, &w->bodies[i]);
         }
     }
@@ -484,7 +484,7 @@ void update_dpos(world_t *w) {
 void apply_dpos(world_t *w) {
     //printf("%d: %f, %f\n", 2, w->bodies[2].pos.x, w->bodies[2].pos.y);
     for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_BM_DYNAMIC) {
+        if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
             pf_apply_dpos(&w->bodies[i]);
         }
     }
@@ -496,7 +496,7 @@ void correct_positions(world_t *w) {
         const pf_manifold_t *m = &km->manifold;
         pf_body_t *a = &w->bodies[km->a_key];
         pf_body_t *b = &w->bodies[km->b_key];
-        if (a->mode == PF_BM_STATIC || b->mode == PF_BM_STATIC) {
+        if (a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) {
             pf_pos_correction(m, a, b);
         }
     }
@@ -513,7 +513,7 @@ void render_demo(demo_t *d) {
     for (int i = 0; i < d->world.body_num; i++) {
         const pf_body_t *a = &d->world.bodies[i];
         switch (a->shape.tag) {
-        case PF_SH_RECT: {
+        case PF_SHAPE_RECT: {
             SDL_Rect rect = {
                 .x = 10 * (a->pos.x - a->shape.radii.x),
                 .y = 10 * (a->pos.y - a->shape.radii.y),
@@ -523,7 +523,7 @@ void render_demo(demo_t *d) {
             SDL_RenderDrawRect(d->renderer, &rect);
             break;
         }
-        case PF_SH_CIRCLE: {
+        case PF_SHAPE_CIRCLE: {
             const int len = 21;
             SDL_Point lines[len];
             for (int i = 0; i < len; i++) {
