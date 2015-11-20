@@ -154,4 +154,6 @@ pf_shape pf_circle(float radius);
 pf_shape pf_box(float side);
 pf_shape pf_rect(float w, float h);
 
+bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t);
+
 #endif

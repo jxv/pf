@@ -508,10 +508,10 @@ float pf_tri_slope(const v2f *radii, pf_corner hypotenuse) {
     switch (hypotenuse) {
     case PF_CORNER_UL:
     case PF_CORNER_DR:
-        return radii->y / radii->x;
+        return -radii->y / radii->x;
     case PF_CORNER_UR:
     case PF_CORNER_DL:
-        return -radii->y / radii->x;
+        return radii->y / radii->x;
     default:
         assert(false);
     }   
