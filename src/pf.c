@@ -1,6 +1,7 @@
 #include "pf.h"
 #include <math.h>
 #include <assert.h>
+#include <stdio.h>
 
 bool pf_intersect(const pf_aabb *a, const pf_aabb *b) {
     return
@@ -71,15 +72,15 @@ bool pf_test_circle(const pf_aabb *a, const pf_body *b) {
 }
 
 inline
-bool pf_point_in_tri_ul(float x, float y, const v2f *dr, float offset, float slope) {
+bool pf_point_in_tri_ul(float x, float y, const v2f *dr, const v2f *ofs, float slope) {
     return
         x <= dr->x &&
         y <= dr->y &&
-        (x - offset) * slope <= (y - dr->y);
+        (y - ofs->y) >= (x - ofs->x) * slope;
 }
  
 bool pf_test_tri_ul(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
-    const float offset = pos->x - radii->x;
+    const v2f ofs = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
     const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f dr = addv2f(*pos, _v2f( radii->x,  radii->y));
@@ -87,22 +88,22 @@ bool pf_test_tri_ul(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
         pf_inside(&ur, a) ||
         pf_inside(&dl, a) ||
         pf_inside(&dr, a) ||
-        pf_point_in_tri_ul(a->min.x, a->min.y, &dr, offset, slope) ||
-        pf_point_in_tri_ul(a->max.x, a->min.y, &dr, offset, slope) ||
-        pf_point_in_tri_ul(a->min.x, a->max.y, &dr, offset, slope) ||
-        pf_point_in_tri_ul(a->max.x, a->max.y, &dr, offset, slope);
+        pf_point_in_tri_ul(a->min.x, a->min.y, &dr, &ofs, slope) ||
+        pf_point_in_tri_ul(a->max.x, a->min.y, &dr, &ofs, slope) ||
+        pf_point_in_tri_ul(a->min.x, a->max.y, &dr, &ofs, slope) ||
+        pf_point_in_tri_ul(a->max.x, a->max.y, &dr, &ofs, slope);
 }
 
 inline
-bool pf_point_in_tri_ur(float x, float y, const v2f *dl, float offset, float slope) {
+bool pf_point_in_tri_ur(float x, float y, const v2f *dl, const v2f *ofs, float slope) {
     return
         x >= dl->x &&
         y <= dl->y &&
-        (x - offset) * slope <= (y - dl->y);
+        (y - ofs->y) >= (x - ofs->x) * slope;
 }
  
 bool pf_test_tri_ur(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
-    const float offset = pos->x - radii->x;
+    const v2f ofs = subv2f(*pos, *radii);
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f dr = addv2f(*pos, _v2f( radii->x,  radii->y));
@@ -110,46 +111,45 @@ bool pf_test_tri_ur(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
         pf_inside(&ul, a) ||
         pf_inside(&dl, a) ||
         pf_inside(&dr, a) ||
-        pf_point_in_tri_ur(a->min.x, a->min.y, &dl, offset, slope) ||
-        pf_point_in_tri_ur(a->max.x, a->min.y, &dl, offset, slope) ||
-        pf_point_in_tri_ur(a->min.x, a->max.y, &dl, offset, slope) ||
-        pf_point_in_tri_ur(a->max.x, a->max.y, &dl, offset, slope);
+        pf_point_in_tri_ur(a->min.x, a->min.y, &dl, &ofs, slope) ||
+        pf_point_in_tri_ur(a->max.x, a->min.y, &dl, &ofs, slope) ||
+        pf_point_in_tri_ur(a->min.x, a->max.y, &dl, &ofs, slope) ||
+        pf_point_in_tri_ur(a->max.x, a->max.y, &dl, &ofs, slope);
 }
 
 inline
-bool pf_point_in_tri_dl(float x, float y, const v2f *ur, float offset, float slope) {
+bool pf_point_in_tri_dl(float x, float y, const v2f *ur, const v2f *ofs, float slope) {
     return
         x <= ur->x &&
         y >= ur->y &&
-        (x - offset) * slope >= (y - ur->y);
+        (y - ofs->y) <= (x - ofs->x) * slope;
 }
  
 bool pf_test_tri_dl(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
-    const float offset = pos->x - radii->x;
+    const v2f ofs = subv2f(*pos, *radii);
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
-    const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f dr = addv2f(*pos, _v2f( radii->x,  radii->y));
    return
         pf_inside(&ul, a) ||
-        pf_inside(&dl, a) ||
+        pf_inside(&ur, a) ||
         pf_inside(&dr, a) ||
-        pf_point_in_tri_dl(a->min.x, a->min.y, &ur, offset, slope) ||
-        pf_point_in_tri_dl(a->max.x, a->min.y, &ur, offset, slope) ||
-        pf_point_in_tri_dl(a->min.x, a->max.y, &ur, offset, slope) ||
-        pf_point_in_tri_dl(a->max.x, a->max.y, &ur, offset, slope);
+        pf_point_in_tri_dl(a->min.x, a->min.y, &ur, &ofs, slope) ||
+        pf_point_in_tri_dl(a->max.x, a->min.y, &ur, &ofs, slope) ||
+        pf_point_in_tri_dl(a->min.x, a->max.y, &ur, &ofs, slope) ||
+        pf_point_in_tri_dl(a->max.x, a->max.y, &ur, &ofs, slope);
 }
 
 inline
-bool pf_point_in_tri_dr(float x, float y, const v2f *ul, float offset, float slope) {
+bool pf_point_in_tri_dr(float x, float y, const v2f *ul, const v2f *ofs, float slope) {
     return
         x >= ul->x &&
         y >= ul->y &&
-        (x - offset) * slope >= (y - ul->y);
+        (y - ofs->y) <= (x - ofs->x) * slope;
 }
  
 bool pf_test_tri_dr(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
-    const float offset = pos->x - radii->x;
+    const v2f ofs = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
     const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
@@ -157,10 +157,10 @@ bool pf_test_tri_dr(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
         pf_inside(&ul, a) ||
         pf_inside(&ur, a) ||
         pf_inside(&dl, a) ||
-        pf_point_in_tri_dr(a->min.x, a->min.y, &ul, offset, slope) ||
-        pf_point_in_tri_dr(a->max.x, a->min.y, &ul, offset, slope) ||
-        pf_point_in_tri_dr(a->min.x, a->max.y, &ul, offset, slope) ||
-        pf_point_in_tri_dr(a->max.x, a->max.y, &ul, offset, slope);
+        pf_point_in_tri_dr(a->min.x, a->min.y, &ul, &ofs, slope) ||
+        pf_point_in_tri_dr(a->max.x, a->min.y, &ul, &ofs, slope) ||
+        pf_point_in_tri_dr(a->min.x, a->max.y, &ul, &ofs, slope) ||
+        pf_point_in_tri_dr(a->max.x, a->max.y, &ul, &ofs, slope);
 }
 
 bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t) {

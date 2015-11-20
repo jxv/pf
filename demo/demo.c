@@ -49,7 +49,42 @@ typedef struct {
 void make_demo(demo *d, SDL_Renderer *renderer);
 void loop_demo(demo *d);
 
+void run_test() {
+    const int n = 5;
+    const pf_aabb boxes[] = {
+        {
+            .min = _v2f(-4,-4),
+            .max = _v2f(-2,-2),
+        },
+        {
+            .min = _v2f(-1, 1),
+            .max = _v2f( 2, 5),
+        },
+        {
+            .min = _v2f( 1,-4),
+            .max = _v2f( 2,-2),
+        },
+        {
+            .min = _v2f( 4,-1),
+            .max = _v2f( 6, 1),
+        },
+        {
+            .min = _v2f(-10,-10),
+            .max = _v2f( 10, 10),
+        },
+    };
+
+    const pf_tri tri = _pf_tri(_v2f(3,2), PF_CORNER_DR);
+
+    const v2f pos = _v2f(1.5,0);
+
+    for (int i = 0; i < n; i++) {
+        printf("[%i] %c\n", i, pf_test_tri(&boxes[i], &pos, &tri) ? 't' : 'f');
+    }
+}
+
 int main() {
+    run_test();
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
         return EXIT_FAILURE;
     }
