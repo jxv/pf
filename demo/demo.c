@@ -50,7 +50,7 @@ void make_demo(demo *d, SDL_Renderer *renderer);
 void loop_demo(demo *d);
 
 void run_test() {
-    const int n = 5;
+    const int n = 6;
     const pf_aabb boxes[] = {
         {
             .min = _v2f(-4,-4),
@@ -72,14 +72,32 @@ void run_test() {
             .min = _v2f(-10,-10),
             .max = _v2f( 10, 10),
         },
+        {
+            .min = _v2f(-1,-1),
+            .max = _v2f( 1, 1),
+        },
     };
 
-    const pf_tri tri = _pf_tri(_v2f(3,2), PF_CORNER_DR);
 
-    const v2f pos = _v2f(1.5,0);
+    pf_body a = _pf_body(), b = _pf_body();
+
+    b.pos = _v2f(0,0);
+    b.shape.tag = PF_SHAPE_TRI;
+    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
 
     for (int i = 0; i < n; i++) {
-        printf("[%i] %c\n", i, pf_test_tri(&boxes[i], &pos, &tri) ? 't' : 'f');
+        v2f normal;
+        float penetration;
+
+        a.pos = mulv2nf(addv2f(boxes[i].min, boxes[i].max), 0.5);
+        a.shape.tag = PF_SHAPE_RECT;
+        a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
+
+        if (pf_rect_to_tri(&a, &b, &normal, &penetration)) {
+            printf("[%i] (%.4f,%.4f) %.4f\n", i, normal.x, normal.y, penetration);
+            continue;
+        }
+        printf("[%i] %c\n", i, 'F');
     }
 }
 

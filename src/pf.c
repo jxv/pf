@@ -287,6 +287,73 @@ bool pf_circle_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
+bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb aabb = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+    assert(t->hypotenuse == PF_CORNER_UL);
+
+    if (pf_test_tri(&aabb, &b->pos, t)) {
+        const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
+        const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
+        const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
+
+        const float sqlen_ur = sqlenv2f(subv2f(ur, a->pos));
+        const float sqlen_dl = sqlenv2f(subv2f(dl, a->pos));
+        const float sqlen_dr = sqlenv2f(subv2f(dr, a->pos));
+        // Find least penetrating rect face 
+        if (sqlen_ur <= sqlen_dr && sqlen_dl <= sqlen_dr) {
+            // Closest to hypotenuse 
+            {   // Normal is down-right rect's corner vs hypontenuse
+                const v2f v = mulv2nf(t->radii, 2);
+                const v2f u = mulv2nf(_v2f(-v.y, v.x), 1.0 / (v.x + v.y)); // differs from tri
+                const v2f n = normv2f(u);
+                *normal = n;
+            }
+            {   // Penetration is distance between hypontenuse's line and corner
+                const v2f b_xy = dl;
+                const float b_m = t->slope;
+                const float b_b = b_xy.y - (b_m * b_xy.x);
+                const v2f a_xy = _v2f(aabb.max.x, aabb.max.y);
+                const float a_m = -1.0 / b_m;
+                const float a_b = a_xy.y - (a_m * a_xy.x);
+                const float c_x = (a_b - b_b) / (b_m - a_m);
+                const float c_y = b_m * c_x + b_b;
+                const v2f c_xy = _v2f(c_x, c_y);
+                *penetration = lenv2f(subv2f(c_xy, a_xy));
+            }
+        }
+        else if (sqlen_ur <= sqlen_dl && sqlen_dr <= sqlen_dl) {
+            // Closest to right
+            *normal = _v2f(1, 0);
+            
+        } else { 
+            // Closest to down
+            assert(sqlen_dl <= sqlen_ur && sqlen_dr <= sqlen_ur);
+            *normal = _v2f(0, 1);
+        }
+
+        return true;
+    }
+    return false;
+}
+
+bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    switch (b->shape.tri.hypotenuse) {
+    case PF_CORNER_UL:
+        return pf_rect_to_tri_ul(a, b, normal, penetration);
+    /*
+    case PF_CORNER_UR:
+        return pf_rect_to_tri_ur(a, b, normal, penetration);
+    case PF_CORNER_DL:
+        return pf_rect_to_tri_dl(a, b, normal, penetration);
+    case PF_CORNER_DR:
+        return pf_rect_to_tri_dr(a, b, normal, penetration);
+    */
+    default:
+        assert(false);
+    }
+}
+
 inline v2f pf_aabb_pos(const pf_aabb *a) {
     return divv2nf(addv2f(a->min, a->max), 2);
 }

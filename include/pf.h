@@ -88,7 +88,7 @@ typedef enum {
 
 typedef struct {
     pf_object_tag tag;
-    struct pf_body *parent;
+    struct pf_body const *parent;
 } pf_object;
 
 typedef struct {
@@ -148,12 +148,13 @@ void pf_super_ball_esque(pf_body *a);
 void pf_pillow_esque(pf_body *a);
 void pf_static_esque(pf_body *a);
 
-pf_tri _pf_tri(v2f radii, pf_corner hypotenuse);
+pf_tri _pf_tri(v2f radii, pf_corner hypotenuse); 
 pf_body _pf_body();
 pf_shape pf_circle(float radius);
 pf_shape pf_box(float side);
 pf_shape pf_rect(float w, float h);
 
 bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t);
+bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
 
 #endif
