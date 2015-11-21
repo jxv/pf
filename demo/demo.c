@@ -94,7 +94,7 @@ void run_test() {
         a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
 
         if (pf_rect_to_tri(&a, &b, &normal, &penetration)) {
-            printf("[%i] (%.4f,%.4f) %.4f\n", i, normal.x, normal.y, penetration);
+            printf("[%i] (%.2f,%.2f) %.2f\n", i, normal.x, normal.y, penetration);
             continue;
         }
         printf("[%i] %c\n", i, 'F');

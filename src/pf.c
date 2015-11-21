@@ -325,11 +325,13 @@ bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *p
         else if (sqlen_ur <= sqlen_dl && sqlen_dr <= sqlen_dl) {
             // Closest to right
             *normal = _v2f(1, 0);
+            *penetration = ur.x - aabb.min.x;
             
         } else { 
             // Closest to down
             assert(sqlen_dl <= sqlen_ur && sqlen_dr <= sqlen_ur);
             *normal = _v2f(0, 1);
+            *penetration = dl.y - aabb.min.y;
         }
 
         return true;
