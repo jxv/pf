@@ -684,6 +684,53 @@ bool pf_circle_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
+bool pf_circle_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_tri *t = &b->shape.tri;
+    assert(t->hypotenuse == PF_CORNER_DR);
+    const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
+    const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
+    const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
+    v2f p;
+    bool inside;
+    const pf_tri_region region = pf_closest_point_triangle(&ul, &ur, &dl, &a->pos, &p, &inside);
+
+    const v2f diff = subv2f(p, a->pos);
+    *penetration = a->shape.radius + (inside ? lenv2f(diff) : -lenv2f(diff));
+
+    if (*penetration <= 0) {
+        return false;
+    }
+
+    if (!eqv2f(a->pos, p)) {
+        *normal = inside ? negv2f(normv2f(diff)) : normv2f(diff);
+    } else {
+        switch (region) {
+        case PF_TRI_REGION_AB:
+            *normal = _v2f(0, 1);
+            break;
+        case PF_TRI_REGION_AC:
+            *normal = _v2f(1, 0);
+            break;
+        case PF_TRI_REGION_BC:
+            *normal = _v2f(-1, -pf_perp_slope(t->m));
+            break;
+        case PF_TRI_REGION_A:
+            *normal = _v2f(1, 1);
+            break;
+        case PF_TRI_REGION_B:
+            *normal = _v2f(-1, 1);
+            break;
+        case PF_TRI_REGION_C:
+            *normal = _v2f(1, -1);
+            break;
+        default:
+            assert(false);
+        }
+        *normal = normv2f(*normal);
+    }
+    return true;
+}
+
 bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     switch (b->shape.tri.hypotenuse) {
     case PF_CORNER_UL:
@@ -692,10 +739,8 @@ bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pe
         return pf_circle_to_tri_ur(a, b, normal, penetration);
     case PF_CORNER_DL:
         return pf_circle_to_tri_dl(a, b, normal, penetration);
-/*
     case PF_CORNER_DR:
         return pf_circle_to_tri_dr(a, b, normal, penetration);
-*/
     default:
         assert(false);
     }
