@@ -81,7 +81,7 @@ void run_test() {
 
     pf_body a = _pf_body(), b = _pf_body();
 
-    b.pos = _v2f(0, 0);
+    b.pos = _v2f(0, -2.5);
     b.shape.tag = PF_SHAPE_TRI;
     b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
 
@@ -95,11 +95,11 @@ void run_test() {
         a.shape.tag = PF_SHAPE_CIRCLE;
         a.shape.radius = (boxes[i].max.y - boxes[i].min.y) * 0.5;
 
+        printf("[%i]", i);
         if (pf_body_to_body(&a, &b, &normal, &penetration)) {
-            printf("[%i] (%.2f,%.2f) %.2f\n", i, normal.x, normal.y, penetration);
-            continue;
+            printf(" (%.2f,%.2f) %.2f", normal.x, normal.y, penetration);
         }
-        printf("[%i] %c\n", i, 'F');
+        putchar('\n');
     }
 }
 
