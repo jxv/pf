@@ -81,9 +81,9 @@ void run_test() {
 
     pf_body a = _pf_body(), b = _pf_body();
 
-    b.pos = _v2f(0, -2.5);
+    b.pos = _v2f(0, -1.7);
     b.shape.tag = PF_SHAPE_TRI;
-    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
+    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_DL);
 
     for (int i = 0; i < n; i++) {
         v2f normal;

@@ -646,36 +646,42 @@ bool pf_circle_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float 
     v2f p;
     bool inside;
     const pf_tri_region region = pf_closest_point_triangle(&ul, &ur, &dr, &a->pos, &p, &inside);
-    switch (region) {
-    //case PF_TRI_REGION_INSIDE:
-    //    *normal = eqv2f(a->pos, p) ? _v2f(1, pf_perp_slope(t->m)) : subv2f(p, a->pos);
-    //    break;
-    case PF_TRI_REGION_AB:
-        *normal = _v2f(1, pf_perp_slope(t->m));
-        break;
-    case PF_TRI_REGION_AC:
-        *normal = _v2f(-1, 0);
-        break;
-    case PF_TRI_REGION_BC:
-        *normal = _v2f(0, -1);
-        break;
-    case PF_TRI_REGION_A:
-        *normal = _v2f(-1, 1);
-        break;
-    case PF_TRI_REGION_B:
-        *normal = _v2f(1, -1);
-        break;
-    case PF_TRI_REGION_C:
-        *normal = _v2f(-1, -1);
-        break;
-    default:
-        assert(false);
+
+    const v2f diff = subv2f(p, a->pos);
+    *penetration = a->shape.radius + (inside ? lenv2f(diff) : -lenv2f(diff));
+
+    if (*penetration <= 0) {
+        return false;
     }
-    *normal = normv2f(*normal);
-    //const float dist = lenv2f(subv2f(p, a->pos));
-    //*penetration = (region == PF_TRI_REGION_INSIDE ? dist : -dist) + a->shape.radius;
-    *penetration = a->shape.radius;
-    return *penetration > 0;
+
+    if (!eqv2f(a->pos, p)) {
+        *normal = inside ? negv2f(normv2f(diff)) : normv2f(diff);
+    } else {
+        switch (region) {
+        case PF_TRI_REGION_AB:
+            *normal = _v2f(0, 1);
+            break;
+        case PF_TRI_REGION_AC:
+            *normal = _v2f(1, pf_perp_slope(t->m));
+            break;
+        case PF_TRI_REGION_BC:
+            *normal = _v2f(-1, 0);
+            break;
+        case PF_TRI_REGION_A:
+            *normal = _v2f(1, 1);
+            break;
+        case PF_TRI_REGION_B:
+            *normal = _v2f(-1, 1);
+            break;
+        case PF_TRI_REGION_C:
+            *normal = _v2f(-1, -1);
+            break;
+        default:
+            break;
+        }
+        *normal = normv2f(*normal);
+    }
+    return true;
 }
 
 bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
