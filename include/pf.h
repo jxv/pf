@@ -26,7 +26,7 @@ typedef enum {
 typedef struct {
     v2f radii;
     pf_corner hypotenuse;
-    float slope;
+    float m;    // slope
 } pf_tri;
 
 typedef struct {
@@ -156,5 +156,7 @@ pf_shape pf_rect(float w, float h);
 
 bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t);
 bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
+float pf_line_point_dist(float p_m, float p_b, float q_x, float q_y);
 
+void asdf();
 #endif

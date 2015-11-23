@@ -83,17 +83,19 @@ void run_test() {
 
     b.pos = _v2f(0,0);
     b.shape.tag = PF_SHAPE_TRI;
-    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
+    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UR);
 
     for (int i = 0; i < n; i++) {
         v2f normal;
         float penetration;
 
         a.pos = mulv2nf(addv2f(boxes[i].min, boxes[i].max), 0.5);
-        a.shape.tag = PF_SHAPE_RECT;
-        a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
+        //a.shape.tag = PF_SHAPE_RECT;
+        //a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
+        a.shape.tag = PF_SHAPE_CIRCLE;
+        a.shape.radius = (boxes[i].max.y - boxes[i].min.y) * 0.5;
 
-        if (pf_rect_to_tri(&a, &b, &normal, &penetration)) {
+        if (pf_body_to_body(&a, &b, &normal, &penetration)) {
             printf("[%i] (%.2f,%.2f) %.2f\n", i, normal.x, normal.y, penetration);
             continue;
         }
@@ -102,7 +104,20 @@ void run_test() {
 }
 
 int main() {
+//    asdf();
+
     run_test();
+/*
+    {
+        const float m = -2;
+        const float b = 0;
+        const float x = 2;
+        const float y = -1;
+        printf("%.2f = pf_line_point_dist(%.2f, %.2f, %.2f, %.2f)\n",
+            pf_line_point_dist(m, b, x, y), m, b, x, y
+        );
+    }
+*/
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
         return EXIT_FAILURE;
     }
