@@ -23,6 +23,10 @@ float pf_line_point_dist(float p_m, float p_b, float q_x, float q_y) {
     return lenv2f(subv2f(_v2f(r_x, r_y), _v2f(q_x, q_y)));
 }
 
+float pf_perp_slope(float m) {
+    return -1.f / m;
+}
+
 float pf_slope_offset(float m, float x, float y) {
     return y - (m * x);
 }
@@ -33,6 +37,12 @@ v2f pf_normalize_segment(const v2f *a, const v2f *b) {
 
 float pf_slope_from_points(const v2f *b, const v2f *a) {
     return (a->y - b->y) / (a->x - b->x);
+}
+
+void pf_closest_point_to_line(const v2f *a, const v2f *b, const v2f *c, v2f *d) {
+    const v2f ab = subv2f(*b, *a);
+    const float t = dotv2f(subv2f(*c, *a), ab) / dotv2f(ab, ab);
+    *d = addv2f(*a, mulv2nf(ab, t));
 }
 
 bool pf_closest_point_to_segment(const v2f *a, const v2f *b, const v2f *c, v2f *d) {
@@ -46,7 +56,6 @@ bool pf_closest_point_to_segment(const v2f *a, const v2f *b, const v2f *c, v2f *
 }
 
 typedef enum {
-    PF_TRI_REGION_INSIDE,
     PF_TRI_REGION_AB,
     PF_TRI_REGION_AC,
     PF_TRI_REGION_BC,
@@ -55,8 +64,7 @@ typedef enum {
     PF_TRI_REGION_C,
 } pf_tri_region;
 
-// d is closest point, returns point's region
-pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *d) {
+bool pf_point_in_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p) {
     // out of a
     const v2f ab = subv2f(*b, *a);
     const v2f ac = subv2f(*c, *a);
@@ -64,8 +72,7 @@ pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c
     const float d1 = dotv2f(ab, ap);
     const float d2 = dotv2f(ac, ap);
     if (d1 <= 0.f && d2 <= 0.f) {
-        *d = *a;
-        return 4;
+        return false;
     }
 
     // out of b
@@ -73,16 +80,13 @@ pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c
     const float d3 = dotv2f(ab, bp);
     const float d4 = dotv2f(ac, bp);
     if (d3 >= 0.f && d4 <= d3) {
-        *d = *b;
-        return 5;
+        return false;
     }
 
     // out of edge a-b
     const float vc = d1 * d4 - d3 * d2;
     if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f) {
-        const float v = d1 / (d1 - d3);
-        *d = addv2f(*a, mulv2nf(ab, v));
-        return 1;
+        return false;
     }
 
     // out of c
@@ -90,32 +94,95 @@ pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c
     const float d5 = dotv2f(ab, cp);
     const float d6 = dotv2f(ac, cp);
     if (d6 >= 0.f && d5 <= d6) {
-        *d = *c;
-        return 6;
+        return false;
+    }
+
+    // out of edge a-c
+    const float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f) {
+        return false;
+    }
+
+    // out of edge b-c
+    const float va = d3 * d6 - d5 * d4;
+    if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f) {
+        return false;
+    }
+
+    // inside
+    return true;
+}
+
+
+// q is closest point, returns point's region
+pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *q) {
+    // out of a
+    const v2f ab = subv2f(*b, *a);
+    const v2f ac = subv2f(*c, *a);
+    const v2f ap = subv2f(*p, *a);
+    const float d1 = dotv2f(ab, ap);
+    const float d2 = dotv2f(ac, ap);
+    if (d1 <= 0.f && d2 <= 0.f) {
+        *q = *a;
+        return PF_TRI_REGION_A;
+    }
+
+    // out of b
+    const v2f bp = subv2f(*p, *b);
+    const float d3 = dotv2f(ab, bp);
+    const float d4 = dotv2f(ac, bp);
+    if (d3 >= 0.f && d4 <= d3) {
+        *q = *b;
+        return PF_TRI_REGION_B;
+    }
+
+    // out of edge a-b
+    const float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f) {
+        const float v = d1 / (d1 - d3);
+        *q = addv2f(*a, mulv2nf(ab, v));
+        return PF_TRI_REGION_AB;
+    }
+
+    // out of c
+    const v2f cp = subv2f(*p, *c);
+    const float d5 = dotv2f(ab, cp);
+    const float d6 = dotv2f(ac, cp);
+    if (d6 >= 0.f && d5 <= d6) {
+        *q = *c;
+        return PF_TRI_REGION_C;
     }
 
     // out of edge a-c
     const float vb = d5 * d2 - d1 * d6;
     if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f) {
         const float w = d2 / (d2 - d6);
-        *d = addv2f(*a, mulv2nf(ac, w));
-        return 2;
+        *q = addv2f(*a, mulv2nf(ac, w));
+        return PF_TRI_REGION_AC;
     }
 
     // out of edge b-c
     const float va = d3 * d6 - d5 * d4;
     if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f) {
         const float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-        *d = addv2f(*b, mulv2nf(subv2f(*c, *b), w));
-        return 3;
+        *q = addv2f(*b, mulv2nf(subv2f(*c, *b), w));
+        return PF_TRI_REGION_BC;
     }
 
     // inside
-    const float denom = 1.f / (va + vb + vc);
-    const float v = vb * denom;
-    const float w = vc * denom;
-    *d = addv2f(*a, addv2f(mulv2nf(ab, v), mulv2nf(ac, w)));
-    return 0;
+    *q = *p;
+    const v2f center = mulv2nf(_v2f(a->x + b->x + c->x, a->y + b->y + c->y), 1.f / 3.f);
+    if (pf_point_in_triangle(&center, a, b, p)) {
+        pf_closest_point_to_line(a, b, p, q);
+        return PF_TRI_REGION_AB;
+    } else if (pf_point_in_triangle(&center, a, c, p)) {
+        pf_closest_point_to_line(a, c, p, q);
+        return PF_TRI_REGION_AC;
+    } else {
+        assert(pf_point_in_triangle(&center, b, c, p));
+        pf_closest_point_to_line(b, c, p, q);
+        return PF_TRI_REGION_BC;
+    }
 }
 
 void pf_flip(v2f *normal, float *penetration) {
@@ -483,12 +550,99 @@ bool pf_circle_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float 
     const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
     v2f p;
     const pf_tri_region region = pf_closest_point_triangle(&ur, &dl, &dr, &a->pos, &p);
+
+    const v2f diff = subv2f(p, a->pos);
+    *penetration = a->shape.radius - lenv2f(diff);
+
+    if (*penetration <= 0) {
+        return false;
+    }
+
+    if (!eqv2f(a->pos, p)) {
+        *normal = normv2f(diff);
+    } else {
+
+        switch (region) {
+        case PF_TRI_REGION_AB:
+            *normal = _v2f(1, pf_perp_slope(t->m));
+            break;
+        case PF_TRI_REGION_AC:
+            *normal = _v2f(-1, 0);
+            break;
+        case PF_TRI_REGION_BC:
+            *normal = _v2f(0, -1);
+            break;
+        case PF_TRI_REGION_A:
+            *normal = _v2f(-1, 1);
+            break;
+        case PF_TRI_REGION_B:
+            *normal = _v2f(1, -1);
+            break;
+        case PF_TRI_REGION_C:
+            *normal = _v2f(-1, -1);
+            break;
+        default:
+            assert(false);
+        }
+        *normal = normv2f(*normal);
+    }
+    return true;
+}
+
+bool pf_circle_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_tri *t = &b->shape.tri;
+    assert(t->hypotenuse == PF_CORNER_UR);
+    const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
+    const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
+    const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
+    v2f p;
+    const pf_tri_region region = pf_closest_point_triangle(&ul, &dl, &dr, &a->pos, &p);
     switch (region) {
-    case PF_TRI_REGION_INSIDE:
-        *normal = eqf(a->pos.x, p.x) ? _v2f(0, -1) : subv2f(p, a->pos);
-        break;
+    //case PF_TRI_REGION_INSIDE:
+    //    *normal = eqv2f(a->pos, p) ? _v2f(-1, pf_perp_slope(t->m)) : subv2f(p, a->pos);
+    //    break;
     case PF_TRI_REGION_AB:
-        *normal = _v2f(1, -1.f / pf_slope_from_points(&dl, &ur));
+        *normal = _v2f(1, 0);
+        break;
+    case PF_TRI_REGION_AC:
+        *normal = _v2f(-1, pf_perp_slope(t->m));
+        break;
+    case PF_TRI_REGION_BC:
+        *normal = _v2f(0, -1);
+        break;
+    case PF_TRI_REGION_A:
+        *normal = _v2f(1, 1);
+        break;
+    case PF_TRI_REGION_B:
+        *normal = _v2f(1, -1);
+        break;
+    case PF_TRI_REGION_C:
+        *normal = _v2f(-1, -1);
+        break;
+    default:
+        assert(false);
+    }
+    *normal = normv2f(*normal);
+    //const float dist = lenv2f(subv2f(p, a->pos));
+    //*penetration = (region == PF_TRI_REGION_INSIDE ? dist : -dist) + a->shape.radius;
+    *penetration = a->shape.radius;
+    return *penetration > 0;
+}
+
+bool pf_circle_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_tri *t = &b->shape.tri;
+    assert(t->hypotenuse == PF_CORNER_DL);
+    const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
+    const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
+    const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
+    v2f p;
+    const pf_tri_region region = pf_closest_point_triangle(&ul, &ur, &dr, &a->pos, &p);
+    switch (region) {
+    //case PF_TRI_REGION_INSIDE:
+    //    *normal = eqv2f(a->pos, p) ? _v2f(1, pf_perp_slope(t->m)) : subv2f(p, a->pos);
+    //    break;
+    case PF_TRI_REGION_AB:
+        *normal = _v2f(1, pf_perp_slope(t->m));
         break;
     case PF_TRI_REGION_AC:
         *normal = _v2f(-1, 0);
@@ -509,50 +663,11 @@ bool pf_circle_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float 
         assert(false);
     }
     *normal = normv2f(*normal);
-    const float dist = lenv2f(subv2f(p, a->pos));
-    *penetration = (region == PF_TRI_REGION_INSIDE ? dist : -dist) + a->shape.radius;
+    //const float dist = lenv2f(subv2f(p, a->pos));
+    //*penetration = (region == PF_TRI_REGION_INSIDE ? dist : -dist) + a->shape.radius;
+    *penetration = a->shape.radius;
     return *penetration > 0;
 }
-
-bool pf_circle_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_tri *t = &b->shape.tri;
-    assert(t->hypotenuse == PF_CORNER_UR);
-    const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
-    const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
-    const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
-    v2f p;
-    const pf_tri_region region = pf_closest_point_triangle(&ul, &dl, &dr, &a->pos, &p);
-    switch (region) {
-    case PF_TRI_REGION_INSIDE:
-        *normal = eqf(a->pos.x, p.x) ? _v2f(0, -1) : subv2f(p, a->pos);
-        break;
-    case PF_TRI_REGION_AB:
-        *normal = _v2f(1, 0);
-        break;
-    case PF_TRI_REGION_AC:
-        *normal = _v2f(1, -1.f / pf_slope_from_points(&ul, &dr));
-        break;
-    case PF_TRI_REGION_BC:
-        *normal = _v2f(0, -1);
-        break;
-    case PF_TRI_REGION_A:
-        *normal = _v2f(1, 1);
-        break;
-    case PF_TRI_REGION_B:
-        *normal = _v2f(1, -1);
-        break;
-    case PF_TRI_REGION_C:
-        *normal = _v2f(-1, -1);
-        break;
-    default:
-        assert(false);
-    }
-    *normal = normv2f(*normal);
-    const float dist = lenv2f(subv2f(p, a->pos));
-    *penetration = (region == PF_TRI_REGION_INSIDE ? dist : -dist) + a->shape.radius;
-    return *penetration > 0;
-}
-
 
 bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     switch (b->shape.tri.hypotenuse) {
@@ -560,9 +675,9 @@ bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pe
         return pf_circle_to_tri_ul(a, b, normal, penetration);
     case PF_CORNER_UR:
         return pf_circle_to_tri_ur(a, b, normal, penetration);
-/*
     case PF_CORNER_DL:
         return pf_circle_to_tri_dl(a, b, normal, penetration);
+/*
     case PF_CORNER_DR:
         return pf_circle_to_tri_dr(a, b, normal, penetration);
 */
