@@ -39,6 +39,45 @@ float pf_slope_from_points(const v2f *b, const v2f *a) {
     return (a->y - b->y) / (a->x - b->x);
 }
 
+pf_aabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
+    return (pf_aabb) {
+        .min = subv2f(*pos, *radii),
+        .max = addv2f(*pos, *radii)
+    };
+}
+
+pf_aabb pf_circle_to_aabb(const v2f *pos, float radius) {
+    return (pf_aabb) {
+        .min = subv2nf(*pos, radius),
+        .max = divv2nf(*pos, radius)
+    };
+}
+
+pf_aabb pf_tri_to_aabb(const v2f *pos, const pf_tri *tri) {
+    return (pf_aabb) {
+        .min = subv2f(*pos, tri->radii),
+        .max = addv2f(*pos, tri->radii)
+    };
+}
+
+pf_aabb pf_shape_to_aabb(const v2f *pos, const pf_shape *sh) {
+    switch (sh->tag) {
+    case PF_SHAPE_RECT:
+        return pf_rect_to_aabb(pos, &sh->radii);
+    case PF_SHAPE_CIRCLE:
+        return pf_circle_to_aabb(pos, sh->radius);
+    case PF_SHAPE_TRI:
+        return pf_tri_to_aabb(pos, &sh->tri);
+    default:
+        assert(false);
+    }
+}
+
+pf_aabb pf_body_to_aabb(const pf_body *a) {
+    return pf_shape_to_aabb(&a->pos, &a->shape);
+}
+
+
 void pf_closest_point_to_line(const v2f *a, const v2f *b, const v2f *c, v2f *d) {
     const v2f ab = subv2f(*b, *a);
     const float t = dotv2f(subv2f(*c, *a), ab) / dotv2f(ab, ab);
@@ -113,6 +152,19 @@ bool pf_point_in_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p
     return true;
 }
 
+// closest point on rect perimeter
+void pf_closest_point_rect(const v2f *pos, const v2f *radii, const v2f *p, v2f *q) {
+    const pf_aabb b = pf_rect_to_aabb(pos, radii);
+    if (pf_inside(p, &b)) {
+        const v2f xclamp = _v2f(clampf(b.min.x, b.max.x, p->x), p->y);
+        const v2f yclamp = _v2f(p->x, clampf(b.min.y, b.max.y, p->y));
+        *q = sqlenv2f(subv2f(*p, xclamp)) < sqlenv2f(subv2f(*p, yclamp))
+            ? xclamp
+            : yclamp;
+    } else {
+        *q = clampv2f(subv2f(*pos, *radii), addv2f(*pos, *radii), *p);
+    }
+}
 
 // q is closest point, returns point's region
 pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *q, bool *inside) {
@@ -254,44 +306,6 @@ void asdf() {
     } else {
         printf("d = (-,-)\n");
     }
-}
-
-pf_aabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
-    return (pf_aabb) {
-        .min = subv2f(*pos, *radii),
-        .max = addv2f(*pos, *radii)
-    };
-}
-
-pf_aabb pf_circle_to_aabb(const v2f *pos, float radius) {
-    return (pf_aabb) {
-        .min = subv2nf(*pos, radius),
-        .max = divv2nf(*pos, radius)
-    };
-}
-
-pf_aabb pf_tri_to_aabb(const v2f *pos, const pf_tri *tri) {
-    return (pf_aabb) {
-        .min = subv2f(*pos, tri->radii),
-        .max = addv2f(*pos, tri->radii)
-    };
-}
-
-pf_aabb pf_shape_to_aabb(const v2f *pos, const pf_shape *sh) {
-    switch (sh->tag) {
-    case PF_SHAPE_RECT:
-        return pf_rect_to_aabb(pos, &sh->radii);
-    case PF_SHAPE_CIRCLE:
-        return pf_circle_to_aabb(pos, sh->radius);
-    case PF_SHAPE_TRI:
-        return pf_tri_to_aabb(pos, &sh->tri);
-    default:
-        assert(false);
-    }
-}
-
-pf_aabb pf_body_to_aabb(const pf_body *a) {
-    return pf_shape_to_aabb(&a->pos, &a->shape);
 }
 
 bool pf_test_rect(const pf_aabb *a, const pf_body *b) {
@@ -746,6 +760,7 @@ bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pe
     }
 }
 
+/*
 bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     const pf_aabb aabb = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
@@ -790,8 +805,36 @@ bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *p
     }
     return false;
 }
+*/
+
+bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb r = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+
+    const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
+    const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
+    const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
+
+    if (dr.x >= r.max.x && dr.y <= r.max.y) {
+        v2f p;
+        pf_closest_point_to_line(&dl, &ur, &r.max, &p);
+        if (p.x > dr.x) {
+            return false;
+        }
+        *normal = normv2f(_v2f(1, pf_perp_slope(t->m)));
+        *penetration = lenv2f(subv2f(p, r.max));
+    }
+
+    return true;
+}
 
 bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb rect_aabb = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_aabb tri_aabb = pf_tri_to_aabb(&a->pos, &a->shape.tri);
+    if (pf_intersect(&rect_aabb, &tri_aabb)) {
+        return false;
+    }
+
     switch (b->shape.tri.hypotenuse) {
     case PF_CORNER_UL:
         return pf_rect_to_tri_ul(a, b, normal, penetration);
