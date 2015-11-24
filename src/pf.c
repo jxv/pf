@@ -273,7 +273,7 @@ pf_aabb pf_circle_to_aabb(const v2f *pos, float radius) {
 pf_aabb pf_tri_to_aabb(const v2f *pos, const pf_tri *tri) {
     return (pf_aabb) {
         .min = subv2f(*pos, tri->radii),
-        .max = divv2f(*pos, tri->radii)
+        .max = addv2f(*pos, tri->radii)
     };
 }
 
@@ -814,11 +814,9 @@ inline v2f pf_aabb_pos(const pf_aabb *a) {
 
 bool pf_solve_collision(const pf_body *a, const pf_body *b, pf_manifold *m) {
     if (pf_body_to_body(a, b, &m->normal, &m->penetration)) {
-        // /*
         if (fabsf(m->penetration) < 0.0001) {
             return false;
         }
-        // */
         m->mixed_restitution = a->restitution * b->restitution;
         m->dynamic_friction = a->dynamic_friction * b->dynamic_friction;
         m->static_friction = a->static_friction * b->static_friction;
