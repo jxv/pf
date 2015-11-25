@@ -106,7 +106,7 @@ void run_test() {
 int main() {
 //    asdf();
 
-    run_test();
+    //run_test();
 /*
     {
         const float m = -2;
@@ -228,6 +228,56 @@ void make_world(world *w) {
         a->shape = pf_rect(0.5,24);
         a->pos = _v2f(32,0);
     }
+    // Triangles
+    // Upper left
+    {
+        pf_body *a = &w->bodies[w->body_num];
+        w->body_num++;
+        *a = _pf_body();
+        a->mode = PF_MODE_STATIC;
+        pf_body_set_mass(0, a);
+        a->mode = PF_MODE_STATIC;
+        a->shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
+        a->shape.tag = PF_SHAPE_TRI;
+        a->pos = _v2f(9,20);
+    }
+    // Upper right
+    {
+        pf_body *a = &w->bodies[w->body_num];
+        w->body_num++;
+        *a = _pf_body();
+        a->mode = PF_MODE_STATIC;
+        pf_body_set_mass(0, a);
+        a->mode = PF_MODE_STATIC;
+        a->shape.tri = _pf_tri(_v2f(2,2), PF_CORNER_UR);
+        a->shape.tag = PF_SHAPE_TRI;
+        a->pos = _v2f(21,20);
+    }
+    // Down left
+    {
+        pf_body *a = &w->bodies[w->body_num];
+        w->body_num++;
+        *a = _pf_body();
+        a->mode = PF_MODE_STATIC;
+        pf_body_set_mass(0, a);
+        a->mode = PF_MODE_STATIC;
+        a->shape.tri = _pf_tri(_v2f(4,2), PF_CORNER_DL);
+        a->shape.tag = PF_SHAPE_TRI;
+        a->pos = _v2f(6,5);
+    }
+    // Down right
+    {
+        pf_body *a = &w->bodies[w->body_num];
+        w->body_num++;
+        *a = _pf_body();
+        a->mode = PF_MODE_STATIC;
+        pf_body_set_mass(0, a);
+        a->mode = PF_MODE_STATIC;
+        a->shape.tri = _pf_tri(_v2f(3,1), PF_CORNER_DR);
+        a->shape.tag = PF_SHAPE_TRI;
+        a->pos = _v2f(23,5);
+    }
+
 
 }
 
@@ -605,6 +655,36 @@ void render_demo(demo *d) {
             }
             lines[len - 1] = lines[0];
             SDL_RenderDrawLines(d->renderer, lines, len);
+            break;
+        }
+        case PF_SHAPE_TRI: {
+            pf_aabb tri = pf_body_to_aabb(a);
+            tri.min = mulv2nf(tri.min, 10);
+            tri.max = mulv2nf(tri.max, 10);
+            switch (a->shape.tri.hypotenuse) {
+            case PF_CORNER_UL:
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.min.y); // dl-ur
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.max.y); // dl-dr
+                SDL_RenderDrawLine(d->renderer, tri.max.x, tri.min.y, tri.max.x, tri.max.y); // ur-dr
+                break;
+           case PF_CORNER_UR:
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.max.y); // ul-dr
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.max.y); // dl-dr
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.min.x, tri.max.y); // ul-dl
+                break;
+            case PF_CORNER_DL:
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.max.y); // ul-dr
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.min.y); // ul-ur
+                SDL_RenderDrawLine(d->renderer, tri.max.x, tri.min.y, tri.max.x, tri.max.y); // ur-dr
+                break;
+            case PF_CORNER_DR:
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.min.y); // dl-ur
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.min.y); // ul-ur
+                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.min.x, tri.max.y); // ul-dl
+                break;
+          default:
+                assert(false);
+            }
             break;
         }
         default: assert(false);
