@@ -3,6 +3,37 @@
 #include <assert.h>
 #include <stdio.h>
 
+typedef enum {
+    PF_TRI_REGION_AB,
+    PF_TRI_REGION_AC,
+    PF_TRI_REGION_BC,
+    PF_TRI_REGION_A,
+    PF_TRI_REGION_B,
+    PF_TRI_REGION_C,
+} pf_tri_region;
+
+typedef enum {
+    PF_RECT_REGION_U,
+    PF_RECT_REGION_D,
+    PF_RECT_REGION_L,
+    PF_RECT_REGION_R,
+    PF_RECT_REGION_UL,
+    PF_RECT_REGION_UR,
+    PF_RECT_REGION_DL,
+    PF_RECT_REGION_DR,
+} pf_rect_region;
+
+typedef struct {
+    struct {
+        float min;
+        float max;
+    } a;
+    struct {
+        float min;
+        float max;
+    } b;
+} pf_project;
+
 bool pf_intersect(const pf_aabb *a, const pf_aabb *b) {
     return
         a->max.x >= b->min.x && a->min.x <= b->max.x &&
@@ -37,6 +68,36 @@ v2f pf_normalize_segment(const v2f *a, const v2f *b) {
 
 float pf_slope_from_points(const v2f *b, const v2f *a) {
     return (a->y - b->y) / (a->x - b->x);
+}
+
+float tri_angle(const v2f *radii, pf_corner hypotenuse) {
+    switch (hypotenuse) {
+    case PF_CORNER_UL:
+    case PF_CORNER_DR:
+        return atan2(-radii->x, radii->y);
+    case PF_CORNER_UR:
+    case PF_CORNER_DL:
+        return atan2(radii->x, radii->y);
+    default:
+        assert(false);
+    }
+}
+
+m2f rotation_matrix(float radians) {
+    const float s = sinf(radians);
+    const float c = cosf(radians);
+    return _m2f(c, -s, s, c);
+}
+
+v2f projection_vector(float radians) {
+    return _v2f(cosf(radians), -sinf(radians));
+}
+
+float project_overlap(const pf_project *proj) {
+    if ((proj->a.max < proj->b.min) || (proj->b.max < proj->a.min)) {
+        return 0;
+    }
+    return fminf(proj->a.max, proj->b.max) - fmaxf(proj->a.min, proj->b.min);
 }
 
 pf_aabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
@@ -93,15 +154,6 @@ bool pf_closest_point_to_segment(const v2f *a, const v2f *b, const v2f *c, v2f *
     }
     return false;
 }
-
-typedef enum {
-    PF_TRI_REGION_AB,
-    PF_TRI_REGION_AC,
-    PF_TRI_REGION_BC,
-    PF_TRI_REGION_A,
-    PF_TRI_REGION_B,
-    PF_TRI_REGION_C,
-} pf_tri_region;
 
 bool pf_point_in_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p) {
     // out of a
@@ -165,6 +217,74 @@ void pf_closest_point_rect(const v2f *pos, const v2f *radii, const v2f *p, v2f *
         *q = clampv2f(subv2f(*pos, *radii), addv2f(*pos, *radii), *p);
     }
 }
+
+// q is closest point, returns point's region
+void pf_closest_point_triangle_no_region(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *q) {
+    // out of a
+    const v2f ab = subv2f(*b, *a);
+    const v2f ac = subv2f(*c, *a);
+    const v2f ap = subv2f(*p, *a);
+    const float d1 = dotv2f(ab, ap);
+    const float d2 = dotv2f(ac, ap);
+    if (d1 <= 0.f && d2 <= 0.f) {
+        *q = *a;
+        return;
+    }
+
+    // out of b
+    const v2f bp = subv2f(*p, *b);
+    const float d3 = dotv2f(ab, bp);
+    const float d4 = dotv2f(ac, bp);
+    if (d3 >= 0.f && d4 <= d3) {
+        *q = *b;
+        return;
+    }
+
+    // out of edge a-b
+    const float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f) {
+        const float v = d1 / (d1 - d3);
+        *q = addv2f(*a, mulv2nf(ab, v));
+        return;
+    }
+
+    // out of c
+    const v2f cp = subv2f(*p, *c);
+    const float d5 = dotv2f(ab, cp);
+    const float d6 = dotv2f(ac, cp);
+    if (d6 >= 0.f && d5 <= d6) {
+        *q = *c;
+        return;
+    }
+
+    // out of edge a-c
+    const float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f) {
+        const float w = d2 / (d2 - d6);
+        *q = addv2f(*a, mulv2nf(ac, w));
+        return;
+    }
+
+    // out of edge b-c
+    const float va = d3 * d6 - d5 * d4;
+    if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f) {
+        const float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        *q = addv2f(*b, mulv2nf(subv2f(*c, *b), w));
+        return;
+    }
+
+    // inside (optimize here at some point)
+    const v2f center = mulv2nf(_v2f(a->x + b->x + c->x, a->y + b->y + c->y), 1.f / 3.f);
+    if (pf_point_in_triangle(&center, a, b, p)) {
+        pf_closest_point_to_line(a, b, p, q);
+    } else if (pf_point_in_triangle(&center, a, c, p)) {
+        pf_closest_point_to_line(a, c, p, q);
+    } else {
+        assert(pf_point_in_triangle(&center, b, c, p));
+        pf_closest_point_to_line(b, c, p, q);
+    }
+}
+
 
 // q is closest point, returns point's region
 pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *q, bool *inside) {
@@ -499,6 +619,26 @@ bool pf_body_to_body_swap(const pf_body *a, const pf_body *b, v2f *normal, float
     return test;
 }
 
+bool pf_aabb_to_aabb(const pf_aabb *a, const pf_aabb *b, v2f *normal, float *penetration) {
+    const v2f a_pos = mulv2nf(addv2f(a->min, a->max), 0.5);
+    const v2f b_pos = mulv2nf(addv2f(b->min, b->max), 0.5);
+    const v2f n = subv2f(b_pos, a_pos);
+    const v2f a_radii = mulv2nf(subv2f(a->max, a->min), 0.5);
+    const v2f b_radii = mulv2nf(subv2f(b->max, b->min), 0.5);
+    const v2f overlap = subv2f(addv2f(a_radii, b_radii), absv2f(n));
+    if (!pf_intersect(a, b)) {
+        return false;
+    } else if (fabsf(overlap.x) < fabsf(overlap.y)) {
+        *penetration = overlap.x;
+        *normal = _v2f(n.x < 0 ? -1 : 1, 0);
+        return true;
+    } else {
+        *penetration = overlap.y;
+        *normal = _v2f(0, n.y < 0 ? -1 : 1);
+        return true;
+    }
+}
+
 bool pf_rect_to_rect(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     const v2f n = subv2f(b->pos, a->pos);
     const v2f overlap = subv2f(addv2f(a->shape.radii, b->shape.radii), absv2f(n));
@@ -808,14 +948,117 @@ bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *p
 */
 
 bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+
+    // Collisions for sides
+    if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
+        return false;
+    }
+
+    {   // Collision against slope
+        pf_project proj;
+        // rect projection
+        proj.a.min = dotv2f(t->proj, _v2f(r_box.min.x, r_box.min.y));   // ul
+        proj.a.max = dotv2f(t->proj, _v2f(r_box.max.x, r_box.max.y));   // dr
+        // tri projection
+        proj.b.min = dotv2f(t->proj, _v2f(t_box.min.x, t_box.max.y));   // dl (ur works too)
+        proj.b.max = dotv2f(t->proj, _v2f(t_box.max.x, t_box.max.y));   // dr
+        //const float overlap = project_overlap(&proj);
+        const float overlap = proj.a.max - proj.b.min; // slope penetration (rect's dr into slope)
+        if (overlap <= 0) { // No overlap means no collision
+            return false;
+        }
+        if (overlap < *penetration) {
+            *penetration = overlap;
+            *normal = t->normal;
+        }
+        /*
+        printf(" a: (%.2f,%.2f) b: (%.2f,%.2f) overlap %.2f",
+            proj.a.min, proj.a.max,
+            proj.b.min, proj.b.max,
+            overlap
+        );
+        */
+    }
+
+    return true;
+}
+
+//bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+/*
+    //const pf_aabb r = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
 
-    const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
-    const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
-    const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
+    const v2f tri_p[] = {
+        addv2f(b->pos, _v2f( t->radii.x, -t->radii.y)), // ur
+        addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y)), // dl
+        addv2f(b->pos, _v2f( t->radii.x,  t->radii.y)), // dr
+    };
 
-    if (dr.x >= r.max.x && dr.y <= r.max.y) {
+    // Closest points from tri corners to rect
+    v2f tri_rect_diff = _v2f(0,0);
+    float tri_rect_sqlen = 0;
+    {
+        v2f p[3];
+        for (int i = 0; i < 3; i++) {
+            pf_closest_point_rect(&a->pos, &a->shape.radii, &tri_p[i], &p[0]);
+        }
+
+        for (int i = 0; i < 3; i++) {
+           const v2f diff = subv2f(p[i], tri_p[i]); 
+           const float sqlen = sqlenv2f(diff);
+           if (sqlen > 0 && sqlen < tri_rect_sqlen) {
+               tri_rect_sqlen = sqlen;
+               tri_rect_diff = diff;
+           }
+       }
+
+    }
+
+    const v2f rect_p[] = {
+        addv2f(a->pos, _v2f(-t->radii.x, -t->radii.y)), // ul
+        addv2f(a->pos, _v2f( t->radii.x, -t->radii.y)), // ur
+        addv2f(a->pos, _v2f(-t->radii.x,  t->radii.y)), // dl
+        addv2f(a->pos, _v2f( t->radii.x,  t->radii.y)), // dr
+    };
+
+    // Closest points from rect corners to tri
+    v2f rect_tri_diff = _v2f(0,0);
+    float rect_tri_sqlen = 0;
+    {
+        v2f p[4];
+        for (int i = 0; i < 4; i++) {
+            pf_closest_point_triangle_no_region(&tri_p[0], &tri_p[1], &tri_p[2], &rect_p[i], &p[i]);
+        }
+       
+        for (int i = 0; i < 4; i++) {
+           const v2f diff = subv2f(p[i], rect_p[i]); 
+           const float sqlen = sqlenv2f(diff);
+           if (sqlen > 0 && sqlen < tri_rect_sqlen) {
+               rect_tri_sqlen = sqlen;
+               rect_tri_diff = diff;
+           }
+       }
+    }
+
+    const bool valid_tri_rect = !nearzerof(tri_rect_sqlen);
+    const bool valid_rect_tri = !nearzerof(rect_tri_sqlen);
+    if (!valid_tri_rect && !valid_rect_tri) {
+        return false;
+    }
+    if ((!valid_tri_rect && valid_rect_tri) || rect_tri_sqlen <= tri_rect_sqlen) {
+        *normal = normv2f(rect_tri_diff);
+    } else {
+        assert((valid_tri_rect && !valid_rect_tri) || rect_tri_sqlen > tri_rect_sqlen);
+        *normal = normv2f(tri_rect_diff);
+    }
+    return true;
+    return *penetration > 0;
+    */
+/*
+       if (dr.x >= r.max.x && dr.y <= r.max.y) {
         v2f p;
         pf_closest_point_to_line(&dl, &ur, &r.max, &p);
         if (p.x > dr.x) {
@@ -826,12 +1069,14 @@ bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *p
     }
 
     return true;
-}
+*/
+//    return false;
+//}
 
 bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     const pf_aabb rect_aabb = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_aabb tri_aabb = pf_tri_to_aabb(&a->pos, &a->shape.tri);
-    if (pf_intersect(&rect_aabb, &tri_aabb)) {
+    const pf_aabb tri_aabb = pf_tri_to_aabb(&b->pos, &b->shape.tri);
+    if (!pf_intersect(&rect_aabb, &tri_aabb)) {
         return false;
     }
 
@@ -1079,11 +1324,29 @@ float pf_tri_slope(const v2f *radii, pf_corner hypotenuse) {
     }   
 }
 
+// Returns a normal facing inwards
+v2f tri_normal(const v2f *radii, pf_corner hypotenuse) {
+    switch (hypotenuse) {
+    case PF_CORNER_UL:
+        return normv2f(_v2f(radii->y, radii->x));
+    case PF_CORNER_UR:
+        return normv2f(_v2f(radii->y, -radii->x));
+    case PF_CORNER_DL:
+        return normv2f(_v2f(-radii->y, radii->x));
+    case PF_CORNER_DR:
+        return normv2f(_v2f(-radii->y, -radii->x));
+    default:
+        assert(false);
+    }
+}
+
 pf_tri _pf_tri(v2f radii, pf_corner hypotenuse) {
     return (pf_tri) {
         .radii = radii,
         .hypotenuse = hypotenuse,
         .m = pf_tri_slope(&radii, hypotenuse),
+        .proj = projection_vector(tri_angle(&radii, hypotenuse)),
+        .normal = tri_normal(&radii, hypotenuse),
     };
 }
 

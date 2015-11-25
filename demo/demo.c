@@ -81,19 +81,19 @@ void run_test() {
 
     pf_body a = _pf_body(), b = _pf_body();
 
-    b.pos = _v2f(0, 2);
+    b.pos = _v2f(0, 0);
     b.shape.tag = PF_SHAPE_TRI;
-    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_DR);
+    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
 
     for (int i = 0; i < n; i++) {
         v2f normal;
         float penetration;
 
         a.pos = mulv2nf(addv2f(boxes[i].min, boxes[i].max), 0.5);
-        //a.shape.tag = PF_SHAPE_RECT;
-        //a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
-        a.shape.tag = PF_SHAPE_CIRCLE;
-        a.shape.radius = (boxes[i].max.y - boxes[i].min.y) * 0.5;
+        a.shape.tag = PF_SHAPE_RECT;
+        a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
+        //a.shape.tag = PF_SHAPE_CIRCLE;
+        //a.shape.radius = (boxes[i].max.y - boxes[i].min.y) * 0.5;
 
         printf("[%i]", i);
         if (pf_body_to_body(&a, &b, &normal, &penetration)) {
