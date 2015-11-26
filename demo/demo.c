@@ -170,7 +170,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->gravity.accel = 1;;
         a->gravity.cap = 1;
-        a->shape = pf_rect(2,3);
+        a->shape = pf_rect(2,0.5);
         a->pos = _v2f(14,4);
         pf_pillow_esque(a);
     }
@@ -236,9 +236,20 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
+        a->shape.tri = _pf_tri(_v2f(3,0.5), PF_CORNER_UL);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(9,20);
+    }
+    // Upper right (on left)
+    {
+        pf_body *a = &w->bodies[w->body_num];
+        w->body_num++;
+        *a = _pf_body();
+        a->mode = PF_MODE_STATIC;
+        pf_body_set_mass(0, a);
+        a->shape.tri = _pf_tri(_v2f(0.5,5), PF_CORNER_UR);
+        a->shape.tag = PF_SHAPE_TRI;
+        a->pos = _v2f(1,8);
     }
     // Upper right
     {
@@ -247,10 +258,11 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(2,2), PF_CORNER_UR);
+        a->shape.tri = _pf_tri(_v2f(2,2.8), PF_CORNER_UR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(21,20);
     }
+
     // Down left
     {
         pf_body *a = &w->bodies[w->body_num];
@@ -272,6 +284,17 @@ void make_world(world *w) {
         a->shape.tri = _pf_tri(_v2f(3,1), PF_CORNER_DR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(23,5);
+    }
+    // Down right (on left)
+    {
+        pf_body *a = &w->bodies[w->body_num];
+        w->body_num++;
+        *a = _pf_body();
+        a->mode = PF_MODE_STATIC;
+        pf_body_set_mass(0, a);
+        a->shape.tri = _pf_tri(_v2f(0.5, 5), PF_CORNER_DR);
+        a->shape.tag = PF_SHAPE_TRI;
+        a->pos = _v2f(1,18);
     }
 
 
@@ -340,7 +363,7 @@ void read_input(input *inp) {
                         trans = _v2f(-sinf(-theta), cosf(-theta));
                         break;
                     case PF_CORNER_UR:
-                        trans = _v2f(-cosf(theta), -sinf(theta));
+                        trans = _v2f(sinf(-theta), -cosf(-theta));
                         break;
                     default:
                         break;
@@ -361,7 +384,7 @@ void read_input(input *inp) {
                         trans = _v2f(sinf(-theta), -cosf(-theta));
                         break;
                     case PF_CORNER_UR:
-                        trans = _v2f(cosf(theta), sinf(theta));
+                        trans = _v2f(-sinf(-theta), cosf(-theta));
                         break;
                     default:
                         break;
@@ -443,7 +466,7 @@ float normf(float x) {
 bool try_child_connect_parent(const pf_manifold *m, pf_body *a, pf_body *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
-        (a->shape.tag == PF_SHAPE_RECT || (a->shape.tag == PF_SHAPE_TRI && b->shape.tag != PF_SHAPE_CIRCLE)) &&
+        //(a->shape.tag == PF_SHAPE_RECT || (a->shape.tag == PF_SHAPE_TRI && b->shape.tag != PF_SHAPE_CIRCLE)) &&
         !nearzerof(b->gravity.vel)
         ) {
         if (b->gravity.dir == PF_DIR_L || b->gravity.dir == PF_DIR_R) {
@@ -501,7 +524,8 @@ void object_platform_relations(world *w) {
 void move_platforms(world *w) {
     {
         static bool dir = false;
-        pf_body *a = &w->bodies[3];
+        const int MOVING_PLATFORM = 3;
+        pf_body *a = &w->bodies[MOVING_PLATFORM];
         if (w->platform_dir) {
             if (dir) {
                 if (a->pos.x < 0) {
@@ -527,6 +551,16 @@ void move_platforms(world *w) {
 
         }
     }
+
+
+    {
+        static float angle = 0;
+        const int MOVING_TRIANGLE = 8;
+        pf_body *a = &w->bodies[MOVING_TRIANGLE];
+        angle += 2 * M_PI * w->dt * 0.3;
+        a->in.impulse = _v2f(cos(angle) * 4, sin(angle * 3) * 1);
+    }
+
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_STATIC) {
             pf_update_dpos(w->dt, &w->bodies[i]);
