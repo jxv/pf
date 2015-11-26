@@ -1322,6 +1322,7 @@ pf_tri _pf_tri(v2f radii, pf_corner hypotenuse) {
     return (pf_tri) {
         .radii = radii,
         .hypotenuse = hypotenuse,
+        .radians = tri_angle(&radii, hypotenuse),
         .m = pf_tri_slope(&radii, hypotenuse),
         .proj = projection_vector(tri_angle(&radii, hypotenuse)),
         .normal = tri_normal(&radii, hypotenuse),

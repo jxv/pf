@@ -26,6 +26,7 @@ typedef enum {
 typedef struct {
     v2f radii;
     pf_corner hypotenuse;
+    float radians;
     float m;    // slope
     v2f proj;   // projection vector
     v2f normal;  // normal

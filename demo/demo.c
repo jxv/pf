@@ -159,7 +159,7 @@ void make_world(world *w) {
         a->gravity.accel = 1;;
         a->gravity.cap = 1;
         a->shape = pf_circle(1);
-        a->pos = _v2f(2,3);
+        a->pos = _v2f(28,2);
         pf_super_ball_esque(a);
     }
 
@@ -182,7 +182,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape = pf_rect(7,1);
+        a->shape = pf_rect(7,0.2);
         a->pos = _v2f(8,16.25);
     }
 
@@ -236,7 +236,6 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->mode = PF_MODE_STATIC;
         a->shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_UL);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(9,20);
@@ -248,7 +247,6 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->mode = PF_MODE_STATIC;
         a->shape.tri = _pf_tri(_v2f(2,2), PF_CORNER_UR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(21,20);
@@ -260,7 +258,6 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->mode = PF_MODE_STATIC;
         a->shape.tri = _pf_tri(_v2f(4,2), PF_CORNER_DL);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(6,5);
@@ -272,7 +269,6 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->mode = PF_MODE_STATIC;
         a->shape.tri = _pf_tri(_v2f(3,1), PF_CORNER_DR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(23,5);
@@ -326,23 +322,58 @@ void read_input(input *inp) {
     void render_demo(demo *d);
 
     void loop_demo(demo *d) {
-        d->input.quit = false;
-        do {
-            const unsigned int start_tick = SDL_GetTicks();
-            read_input(&d->input);
-            //
-            pf_body *ch = &d->world.bodies[2];
-            const float force = 30;
-            if (d->input.left) {
-                ch->in.impulse = _v2f(-force, 0);
+    d->input.quit = false;
+    do {
+        const unsigned int start_tick = SDL_GetTicks();
+        read_input(&d->input);
+        //
+        pf_body *ch = &d->world.bodies[2];
+        const float force = 20;
+        if (d->input.left) { v2f trans = _v2f(-1, 0);
+            // Adjust for parent's angle
+            if (ch->group.object.parent) {
+                const pf_body *b = ch->group.object.parent;
+                if (b->shape.tag == PF_SHAPE_TRI) {
+                    const float theta = b->shape.tri.radians;
+                    switch (b->shape.tri.hypotenuse) {
+                    case PF_CORNER_UL:
+                        trans = _v2f(-sinf(-theta), cosf(-theta));
+                        break;
+                    case PF_CORNER_UR:
+                        trans = _v2f(-cosf(theta), -sinf(theta));
+                        break;
+                    default:
+                        break;
+                    }
+                }
             }
-            if (d->input.right) {
-                ch->in.impulse = _v2f(force, 0);
+            ch->in.impulse = _v2f(force * trans.x, force * trans.y);
+        }
+        if (d->input.right) {
+            v2f trans = _v2f(1, 0);
+            // Adjust for parent's angle
+            if (ch->group.object.parent) {
+                const pf_body *b = ch->group.object.parent;
+                if (b->shape.tag == PF_SHAPE_TRI) {
+                    const float theta = b->shape.tri.radians;
+                    switch (b->shape.tri.hypotenuse) {
+                    case PF_CORNER_UL:
+                        trans = _v2f(sinf(-theta), -cosf(-theta));
+                        break;
+                    case PF_CORNER_UR:
+                        trans = _v2f(cosf(theta), sinf(theta));
+                        break;
+                    default:
+                        break;
+                    }
+                }
             }
-            if (d->input.up) {
-                ch->in.impulse = _v2f(0, -force);
-            }
-            if (d->input.down && !ch->group.object.parent) {
+            ch->in.impulse = _v2f(force * trans.x, force * trans.y);
+        }
+        if (d->input.up) {
+            ch->in.impulse = _v2f(0, -force);
+        }
+        if (d->input.down && !ch->group.object.parent) {
             ch->in.impulse = _v2f(0, force);
         }
         if (d->input.change_axis) {
@@ -350,15 +381,13 @@ void read_input(input *inp) {
         }
         //
         step_world(&d->world);
-/*
-        printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: (%.2f,%.2f)\tparent: %p\n",
+        printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: %.2f\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
             ch->in.impulse.x, ch->in.impulse.y,
             ch->ex.impulse.x, ch->ex.impulse.y,
-            ch->gravity_vel.x, ch->gravity_vel.y,
-            (void*)ch->parent
+            ch->gravity.vel,
+            (void*)ch->group.object.parent
         );
-*/
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -409,19 +438,21 @@ float normf(float x) {
     return nearzerof(x) ? 0 : (x > 0 ? 1 : -1);
 }
 
-bool try_child_connect_parent(pf_body *a, pf_body *b) {
+bool try_child_connect_parent(const pf_manifold *m, pf_body *a, pf_body *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
-        a->shape.tag == PF_SHAPE_RECT &&
+        (a->shape.tag == PF_SHAPE_RECT || a->shape.tag == PF_SHAPE_TRI) &&
         !nearzerof(b->gravity.vel)
         ) {
         if (b->gravity.dir == PF_DIR_L || b->gravity.dir == PF_DIR_R) {
-            if (normf(b->gravity.vel) == normf(a->pos.x - b->pos.x)) {
+            if (m->normal.y < -0.6) {
+            //if (normf(b->gravity.vel) == normf(a->pos.x - b->pos.x)) {
                 b->group.object.parent = a;
                 return true;
             }
         } else {
-            if (normf(b->gravity.vel) == normf(a->pos.y - b->pos.y)) {
+            if (m->normal.y > 0.6) {
+//            if (normf(b->gravity.vel) == normf(a->pos.y - b->pos.y)) {
                 b->group.object.parent = a;
                 return true;
             }
@@ -453,11 +484,11 @@ void object_platform_relations(world *w) {
             }
             if (pf_solve_collision(a, b, &m)) {
                 v2f penetration = mulv2nf(m.normal, m.penetration);
-                penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011));
-                if (try_child_connect_parent(a, b)) {
+                penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011)); // 0.00011 = magic number to stop jitter
+                if (try_child_connect_parent(&m, a, b)) {
                     b->pos = addv2f(b->pos, penetration);
                 }
-                if (try_child_connect_parent(b, a)) {
+                if (try_child_connect_parent(&m, b, a)) {
                     a->pos = subv2f(a->pos, penetration);
                 }
             }
@@ -481,7 +512,7 @@ void move_platforms(world *w) {
                     dir = true;
                 }
             }
-            a->in.impulse = _v2f(dir ? -10 : 10, 0);
+            a->in.impulse = _v2f(dir ? -5 : 5, 0);
         } else {
             if (dir) {
                 if (a->pos.y < 10) {
@@ -492,7 +523,7 @@ void move_platforms(world *w) {
                     dir = true;
                 }
             }
-            a->in.impulse = _v2f(0, dir ? -10 : 10);
+            a->in.impulse = _v2f(0, dir ? -5 : 5);
 
         }
     }
@@ -591,9 +622,13 @@ void solve_platform_collisions(world *w) {
 }
 
 void update_dpos(world *w) {
+
+
     for (int i = 0; i < w->body_num; i++) {
-        if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
-            pf_update_dpos(w->dt, &w->bodies[i]);
+        pf_body *a = &w->bodies[i];
+        if (a->mode == PF_MODE_DYNAMIC) {
+
+            pf_update_dpos(w->dt, a);
         }
     }
 }
