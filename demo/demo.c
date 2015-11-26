@@ -381,6 +381,7 @@ void read_input(input *inp) {
         }
         //
         step_world(&d->world);
+        /*
         printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: %.2f\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
             ch->in.impulse.x, ch->in.impulse.y,
@@ -388,6 +389,7 @@ void read_input(input *inp) {
             ch->gravity.vel,
             (void*)ch->group.object.parent
         );
+        */
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -441,18 +443,16 @@ float normf(float x) {
 bool try_child_connect_parent(const pf_manifold *m, pf_body *a, pf_body *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
-        (a->shape.tag == PF_SHAPE_RECT || a->shape.tag == PF_SHAPE_TRI) &&
+        (a->shape.tag == PF_SHAPE_RECT || (a->shape.tag == PF_SHAPE_TRI && b->shape.tag != PF_SHAPE_CIRCLE)) &&
         !nearzerof(b->gravity.vel)
         ) {
         if (b->gravity.dir == PF_DIR_L || b->gravity.dir == PF_DIR_R) {
-            if (m->normal.y < -0.6) {
-            //if (normf(b->gravity.vel) == normf(a->pos.x - b->pos.x)) {
+            if (m->normal.y < -0.23) {
                 b->group.object.parent = a;
                 return true;
             }
         } else {
-            if (m->normal.y > 0.6) {
-//            if (normf(b->gravity.vel) == normf(a->pos.y - b->pos.y)) {
+            if (m->normal.y > 0.23) {
                 b->group.object.parent = a;
                 return true;
             }
