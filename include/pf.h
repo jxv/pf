@@ -162,5 +162,4 @@ bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pene
 float pf_line_point_dist(float p_m, float p_b, float q_x, float q_y);
 pf_aabb pf_body_to_aabb(const pf_body *a);
 
-void asdf();
 #endif

@@ -403,31 +403,6 @@ bool pf_point_to_circle(const v2f *a_pos, const v2f *b_pos, float b_radius, v2f 
     return pf_circle_to_circle_(a_pos, 0, b_pos, b_radius, normal, penetration);
 }
 
-void asdf() {
-    const float a_x = 0;
-    const float a_y = -4;
-
-    const float b_x = 2;
-    const float b_y = -2;
-    const float b_hw = 2;
-    const float b_hh = 2;
-
-    const v2f a_pnt = _v2f(b_x - b_hw, b_y + b_hh);
-    const v2f b_pnt = _v2f(b_x + b_hw, b_y - b_hh);
-    const v2f c_pnt = _v2f(a_x, a_y);
-
-    v2f d_pnt;
-    if (pf_closest_point_to_segment(&a_pnt, &b_pnt, &c_pnt, &d_pnt)) {
-        printf("d = (%.2f,%.2f)\n", d_pnt.x, d_pnt.y);
-        const v2f n = pf_normalize_segment(&c_pnt, &d_pnt);
-        printf("n(d) = (%.2f,%.2f)\n", n.x, n.y);
-        const float dist = (c_pnt.x < d_pnt.x ? -1 : 1) * lenv2f(subv2f(d_pnt, c_pnt));
-        printf("dist(d) = %.2f\n", dist);
-    } else {
-        printf("d = (-,-)\n");
-    }
-}
-
 bool pf_test_rect(const pf_aabb *a, const pf_body *b) {
     assert(b->shape.tag == PF_SHAPE_RECT);
     const pf_aabb rect = pf_body_to_aabb(b);
@@ -1108,6 +1083,7 @@ void pf_pos_correction(const pf_manifold *m, pf_body *a,  pf_body *b) {
 void pf_apply_manifold(const pf_manifold *m, pf_body *a, pf_body *b) {
     const float inverse_mass_sum = a->inverse_mass + b->inverse_mass;
     if (nearzerof(inverse_mass_sum)) {
+        // TODO: verify this below
         a->ex.impulse = _v2f(0,0);
         b->ex.impulse = _v2f(0,0);
         return;
