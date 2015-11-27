@@ -901,53 +901,6 @@ bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pe
     }
 }
 
-/*
-bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb aabb = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    assert(t->hypotenuse == PF_CORNER_UL);
-
-    if (pf_test_tri(&aabb, &b->pos, t)) {
-        const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
-        const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
-        const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
-
-        const float sqlen_ur = sqlenv2f(subv2f(ur, a->pos));
-        const float sqlen_dl = sqlenv2f(subv2f(dl, a->pos));
-        const float sqlen_dr = sqlenv2f(subv2f(dr, a->pos));
-        // Find least penetrating rect face 
-        if (sqlen_ur <= sqlen_dr && sqlen_dl <= sqlen_dr) {
-            // Closest to hypotenuse 
-            {   // Normal is down-right rect's corner vs hypontenuse
-                const v2f v = mulv2nf(t->radii, 2);
-                const v2f u = mulv2nf(_v2f(-v.y, v.x), 1.0 / (v.x + v.y)); // differs from tri
-                const v2f n = normv2f(u);
-                *normal = n;
-            }
-            // Penetration is distance between hypontenuse's line and corner
-            *penetration = pf_line_point_dist(
-                t->m, 
-                dl.y - (t->m * dl.x),
-                aabb.max.x,
-                aabb.max.y
-            );
-        } else if (sqlen_ur <= sqlen_dl && sqlen_dr <= sqlen_dl) {
-            // Closest to right
-            *normal = _v2f(1, 0);
-            *penetration = ur.x - aabb.min.x;
-        } else { 
-            // Closest to down
-            assert(sqlen_dl <= sqlen_ur && sqlen_dr <= sqlen_ur);
-            *normal = _v2f(0, 1);
-            *penetration = dl.y - aabb.min.y;
-        }
-
-        return true;
-    }
-    return false;
-}
-*/
-
 bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
@@ -1143,33 +1096,6 @@ void pf_apply_dpos(pf_body *a) {
     a->pos = addv2f(a->pos, a->dpos);
 }
 
-/*
-void pf_integrate_force(float dt, pf_body *a) {
-    if (!nearzerof(a->inverse_mass)) {
-        const v2f velocity = mulv2nf(
-            addv2f(mulv2nf(a->force, a->inverse_mass),
-                   a->gravity.rate : _v2f(0,0)),
-            dt / 2
-        );
-        a->velocity = a->parent ? velocity : addv2f(a->velocity, velocity);
-    } else {
-        // Allows moving static bodies
-        a->velocity = mulv2nf(a->force, dt);
-        a->pos = addv2f(a->velocity, a->pos);
-    }
-}
-*/
-
-/*
-void pf_integrate_velocity(float dt, pf_body *a) {
-    if (!nearzerof(a->inverse_mass)) {
-        const v2f pos = mulv2nf(a->velocity, dt);
-        a->pos = addv2f(a->pos, pos);
-        pf_integrate_force(dt, a);
-    }
-}
-*/
-
 void pf_pos_correction(const pf_manifold *m, pf_body *a,  pf_body *b) {
     float percent = 0.2;
     float slop = 0.01;
@@ -1209,39 +1135,6 @@ void pf_apply_manifold(const pf_manifold *m, pf_body *a, pf_body *b) {
     a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(tagent_impulse, a->inverse_mass));
     b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(tagent_impulse, b->inverse_mass));
 }
-
-/*
-void pf_manifold_apply_impulse(const pf_manifold *m, pf_body *a, pf_body *b) {
-    const float inverse_massSum = a->inverse_mass + b->inverse_mass;
-    if (nearzerof(inverse_massSum)) {
-        a->velocity = _v2f(0,0);
-        b->velocity = _v2f(0,0);
-        return;
-    }
-    v2f rv = subv2f(b->velocity, a->velocity);
-    const float contactVelocity = dotv2f(rv, m->normal);
-    if (contactVelocity > 0) {
-        return;
-    }
-    float e = fminf(a->restitution, b->restitution);
-    float j = (-(1 + e) *contactVelocity) / inverse_massSum;
-    const v2f impulse = mulv2nf(m->normal, j);
-    a->velocity = subv2f(a->velocity, mulv2nf(impulse, a->inverse_mass));
-    b->velocity = addv2f(b->velocity, mulv2nf(impulse, b->inverse_mass));
-    rv = subv2f(b->velocity, a->velocity);
-    const v2f t = normv2f(subv2f(rv, mulv2nf(m->normal, dotv2f(rv, m->normal))));
-    const float jt = -dotv2f(rv,t) / inverse_massSum;
-    if (nearzerof(jt)) {
-        return;
-    }
-    float k = fabsf(jt) < (j *m->static_friction)
-        ? jt
-        : (-j *m->dynamic_friction);
-    const v2f tagentImpulse = mulv2nf(t, k);
-    a->velocity = subv2f(a->velocity, mulv2nf(tagentImpulse, a->inverse_mass));
-    b->velocity = addv2f(b->velocity, mulv2nf(tagentImpulse, b->inverse_mass));
-}
-*/
 
 void pf_body_set_mass(float mass, pf_body *a) {
     a->mass = mass;
