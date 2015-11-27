@@ -461,7 +461,7 @@ bool pf_test_tri_dl(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
     const v2f dr = addv2f(*pos, _v2f( radii->x,  radii->y));
-   return
+    return
         pf_inside(&ul, a) ||
         pf_inside(&ur, a) ||
         pf_inside(&dr, a) ||
@@ -484,7 +484,7 @@ bool pf_test_tri_dr(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
     const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
-   return
+    return
         pf_inside(&ul, a) ||
         pf_inside(&ur, a) ||
         pf_inside(&dl, a) ||
@@ -622,7 +622,7 @@ bool pf_rect_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *p
     const bool out_up = b->pos.y < a->pos.y - a->shape.radii.y;
     const bool out_dn = b->pos.y > a->pos.y + a->shape.radii.y;
     if ((out_lf || out_rt) && (out_up || out_dn)) {
-        /* Treat as (circle/corner_point)_to_circle collision */
+        // Treat as (circle/corner_point)_to_circle collision
         pf_body a_ = *a;
         a_.shape.tag = PF_SHAPE_CIRCLE;
         a_.shape.radius = 0;
@@ -630,7 +630,7 @@ bool pf_rect_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *p
         a_.pos.y += out_up ? -a->shape.radii.y : a->shape.radii.y;
         return pf_circle_to_circle(&a_, b, normal, penetration);
     } else {
-        /* Treat as pf_rect_to_rect collision */
+        // Treat as pf_rect_to_rect collision
         pf_body b_ = *b;
         b_.shape.tag = PF_SHAPE_RECT;
         b_.shape.radii = _v2f(b->shape.radius, b->shape.radius);
@@ -858,31 +858,32 @@ bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pe
     }
 }
 
+inline
+float pf_project_slope(const v2f *proj, const v2f *min_pos, const v2f *max_pos) {
+    const float min = dotv2f(*proj, *min_pos);
+    const float max = dotv2f(*proj, *max_pos);
+    return max - min;
+}
+
 bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
     const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
     const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
-
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
     }
-
-    {   // Collision against slope
-        // rect projection
-        const float a_max = dotv2f(t->proj, _v2f(r_box.max.x, r_box.max.y));    // dr
-        // tri projection
-        const float b_min = dotv2f(t->proj, _v2f(t_box.min.x, t_box.max.y));   // dl (ur works too)
-        const float overlap = a_max - b_min; // slope penetration (rect's dr into slope)
-        if (overlap <= 0) { // No overlap means no collision
-            return false;
-        }
-        if (overlap < *penetration) {
-            *penetration = overlap;
-            *normal = t->normal;
-        }
+    // Collision against slope
+    const v2f a_dr = _v2f(r_box.max.x, r_box.max.y);
+    const v2f b_dl = _v2f(t_box.min.x, t_box.max.y); // or ur
+    const float overlap = pf_project_slope(&t->proj, &b_dl, &a_dr);
+    if (overlap <= 0) { // No overlap means no collision
+        return false;
     }
-
+    if (overlap < *penetration) {
+        *penetration = overlap;
+        *normal = t->normal;
+    }
     return *penetration > 0;
 }
 
@@ -890,27 +891,21 @@ bool pf_rect_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float *p
     const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
     const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
-
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
     }
-
-    {   // Collision against slope
-        // rect projection
-        const float a_min = dotv2f(t->proj, _v2f(r_box.min.x, r_box.max.y));   // dl
-        // tri projection
-        const float b_max = dotv2f(t->proj, _v2f(t_box.max.x, t_box.max.y));   // dr (ul works too)
-        const float overlap = b_max - a_min; // slope penetration (rect's dl into slope)
-        if (overlap <= 0) { // No overlap means no collision
-            return false;
-        }
-        if (overlap < *penetration) {
-            *penetration = overlap;
-            *normal = t->normal;
-        }
+    // Collision against slope
+    const v2f a_dl = _v2f(r_box.min.x, r_box.max.y);
+    const v2f b_dr = _v2f(t_box.max.x, t_box.max.y); // or ul
+    const float overlap = pf_project_slope(&t->proj, &a_dl, &b_dr);
+    if (overlap <= 0) { // No overlap means no collision
+        return false;
     }
-
+    if (overlap < *penetration) {
+        *penetration = overlap;
+        *normal = t->normal;
+    }
     return *penetration > 0;
 }
 
@@ -918,27 +913,21 @@ bool pf_rect_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float *p
     const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
     const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
-
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
     }
-
-    {   // Collision against slope
-        // rect projection
-        const float a_max = dotv2f(t->proj, _v2f(r_box.max.x, r_box.min.y));   // ur
-        // tri projection
-        const float b_min = dotv2f(t->proj, _v2f(t_box.max.x, t_box.max.y));   // dr (ul works too)
-        const float overlap = a_max - b_min; // slope penetration (rect's ur into slope)
-        if (overlap <= 0) { // No overlap means no collision
-            return false;
-        }
-        if (overlap < *penetration) {
-            *penetration = overlap;
-            *normal = t->normal;
-        }
+    // Collision against slope
+    const v2f a_ur = _v2f(r_box.max.x, r_box.min.y);
+    const v2f b_dr = _v2f(t_box.max.x, t_box.max.y); // or ul
+    const float overlap = pf_project_slope(&t->proj, &b_dr, &a_ur);
+    if (overlap <= 0) { // No overlap means no collision
+        return false;
     }
-
+    if (overlap < *penetration) {
+        *penetration = overlap;
+        *normal = t->normal;
+    }
     return *penetration > 0;
 }
 
@@ -946,25 +935,20 @@ bool pf_rect_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float *p
     const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
     const pf_tri *t = &b->shape.tri;
     const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
-
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
     }
-
-    {   // Collision against slope
-        // rect projection
-        const float a_min = dotv2f(t->proj, _v2f(r_box.min.x, r_box.min.y));    // ul
-        // tri projection
-        const float b_max = dotv2f(t->proj, _v2f(t_box.min.x, t_box.max.y));   // dl (ur works too)
-        const float overlap = b_max - a_min; // slope penetration (rect's ul into slope)
-        if (overlap <= 0) { // No overlap means no collision
-            return false;
-        }
-        if (overlap < *penetration) {
-            *penetration = overlap;
-            *normal = t->normal;
-        }
+    // Collision against slope
+    const v2f a_ul = _v2f(r_box.min.x, r_box.min.y);
+    const v2f b_dl = _v2f(t_box.min.x, t_box.max.y); // or ul
+    const float overlap = pf_project_slope(&t->proj, &a_ul, &b_dl);
+    if (overlap <= 0) { // No overlap means no collision
+        return false;
+    }
+    if (overlap < *penetration) {
+        *penetration = overlap;
+        *normal = t->normal;
     }
     return *penetration > 0;
 }
