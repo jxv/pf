@@ -23,17 +23,6 @@ typedef enum {
     PF_RECT_REGION_DR,
 } pf_rect_region;
 
-typedef struct {
-    struct {
-        float min;
-        float max;
-    } a;
-    struct {
-        float min;
-        float max;
-    } b;
-} pf_project;
-
 bool pf_intersect(const pf_aabb *a, const pf_aabb *b) {
     return
         a->max.x >= b->min.x && a->min.x <= b->max.x &&
@@ -91,13 +80,6 @@ m2f rotation_matrix(float radians) {
 
 v2f projection_vector(float radians) {
     return _v2f(cosf(radians), -sinf(radians));
-}
-
-float project_overlap(const pf_project *proj) {
-    if ((proj->a.max < proj->b.min) || (proj->b.max < proj->a.min)) {
-        return 0;
-    }
-    return fminf(proj->a.max, proj->b.max) - fmaxf(proj->a.min, proj->b.min);
 }
 
 pf_aabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
