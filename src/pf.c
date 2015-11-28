@@ -1154,13 +1154,16 @@ v2f tri_normal(const v2f *radii, pf_corner hypotenuse) {
 }
 
 pf_tri _pf_tri(v2f radii, pf_corner hypotenuse) {
+    const float radians = tri_angle(&radii, hypotenuse);
     return (pf_tri) {
         .radii = radii,
         .hypotenuse = hypotenuse,
-        .radians = tri_angle(&radii, hypotenuse),
+        .radians = radians,
         .m = pf_tri_slope(&radii, hypotenuse),
-        .proj = projection_vector(tri_angle(&radii, hypotenuse)),
+        .proj = projection_vector(radians),
         .normal = tri_normal(&radii, hypotenuse),
+        .sin = sinf(radians),
+        .cos = cosf(radians),
     };
 }
 

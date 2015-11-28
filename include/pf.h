@@ -29,7 +29,9 @@ typedef struct {
     float radians;
     float m;    // slope
     v2f proj;   // projection vector
-    v2f normal;  // normal
+    v2f normal; // normal
+    float sin;  // calculated with radians
+    float cos;  // calculated with radias
 } pf_tri;
 
 typedef struct {

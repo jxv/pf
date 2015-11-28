@@ -104,20 +104,7 @@ void run_test() {
 }
 
 int main() {
-//    asdf();
-
     //run_test();
-/*
-    {
-        const float m = -2;
-        const float b = 0;
-        const float x = 2;
-        const float y = -1;
-        printf("%.2f = pf_line_point_dist(%.2f, %.2f, %.2f, %.2f)\n",
-            pf_line_point_dist(m, b, x, y), m, b, x, y
-        );
-    }
-*/
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
         return EXIT_FAILURE;
     }
@@ -137,7 +124,7 @@ void make_world(world *w) {
     w->manifold_num = 0;
     w->dt = 1.0 / 60.0;
     w->iterations = 1;
-    w->platform_dir = false;;
+    w->platform_dir = false;
 
     // Large circle
     {
@@ -170,7 +157,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->gravity.accel = 1;;
         a->gravity.cap = 1;
-        a->shape = pf_rect(2,0.5);
+        a->shape = pf_rect(2,3.5);
         a->pos = _v2f(14,4);
         pf_pillow_esque(a);
     }
@@ -297,6 +284,9 @@ void make_world(world *w) {
         a->pos = _v2f(1,18);
     }
 
+    for (int i = 0; i < w->body_num; i++) {
+        w->bodies[i].gravity.dir = PF_DIR_D;
+    }
 
 }
 
@@ -307,44 +297,70 @@ void make_demo(demo *d, SDL_Renderer *renderer) {
 
 void read_input(input *inp) {
     SDL_Event event;
-        memset(inp, 0, sizeof(*inp));
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_KEYDOWN) {
-                switch (event.key.keysym.sym) {
-                case SDLK_ESCAPE:
-                    inp->quit = true;
-                    break;
-                case SDLK_LEFT:
-                    inp->left = true;
-                    break;
-                case SDLK_UP:
-                    inp->up = true;
-                    break;
-                case SDLK_RIGHT:
-                    inp->right = true;
-                    break;
-                case SDLK_DOWN:
-                    inp->down = true;
-                    break;
-                case SDLK_SPACE:
-                    inp->change_axis = true;
-                    break;
-                default:
-                    break;
-                }
+    memset(inp, 0, sizeof(*inp));
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_KEYDOWN) {
+            switch (event.key.keysym.sym) {
+            case SDLK_ESCAPE:
+                inp->quit = true;
+                break;
+            case SDLK_LEFT:
+                inp->left = true;
+                break;
+            case SDLK_UP:
+                inp->up = true;
+                break;
+            case SDLK_RIGHT:
+                inp->right = true;
+                break;
+            case SDLK_DOWN:
+                inp->down = true;
+                break;
+            case SDLK_SPACE:
+                inp->change_axis = true;
+                break;
+            default:
+                break;
             }
         }
     }
+}
 
-    unsigned int delay_time(unsigned int goal, unsigned int start, unsigned int end) {
-        const unsigned int frame = end - start;
-        return frame >= goal ? 0 : (goal - frame);
+unsigned int delay_time(unsigned int goal, unsigned int start, unsigned int end) {
+    const unsigned int frame = end - start;
+    return frame >= goal ? 0 : (goal - frame);
+}
+
+void step_world(world *w);
+void render_demo(demo *d);
+
+void move_left_transform_by_slope(const pf_tri *t, v2f *trans) {
+    switch (t->hypotenuse) {
+    case PF_CORNER_UL:
+        *trans = _v2f(t->sin, -t->cos);
+        break;
+    case PF_CORNER_UR:
+        *trans = _v2f(-t->sin, -t->cos);
+        break;
+    default:
+        break;
     }
+}
 
-    void step_world(world *w);
-    void render_demo(demo *d);
+void move_right_transform_by_slope(const pf_tri *t, v2f *trans) {
+    switch (t->hypotenuse) {
+    case PF_CORNER_UL:
+        *trans = _v2f(-t->sin, t->cos);
+        break;
+    case PF_CORNER_UR:
+        *trans = _v2f(t->sin, t->cos);
+        break;
+    default:
+        break;
+    }
+}
 
-    void loop_demo(demo *d) {
+void loop_demo(demo *d) {
     d->input.quit = false;
     do {
         const unsigned int start_tick = SDL_GetTicks();
@@ -352,22 +368,13 @@ void read_input(input *inp) {
         //
         pf_body *ch = &d->world.bodies[2];
         const float force = 20;
-        if (d->input.left) { v2f trans = _v2f(-1, 0);
+        if (d->input.left) {
+            v2f trans = _v2f(-1, 0);
             // Adjust for parent's angle
             if (ch->group.object.parent) {
                 const pf_body *b = ch->group.object.parent;
                 if (b->shape.tag == PF_SHAPE_TRI) {
-                    const float theta = b->shape.tri.radians;
-                    switch (b->shape.tri.hypotenuse) {
-                    case PF_CORNER_UL:
-                        trans = _v2f(-sinf(-theta), cosf(-theta));
-                        break;
-                    case PF_CORNER_UR:
-                        trans = _v2f(sinf(-theta), -cosf(-theta));
-                        break;
-                    default:
-                        break;
-                    }
+                    move_left_transform_by_slope(&b->shape.tri, &trans);
                 }
             }
             ch->in.impulse = _v2f(force * trans.x, force * trans.y);
@@ -378,17 +385,7 @@ void read_input(input *inp) {
             if (ch->group.object.parent) {
                 const pf_body *b = ch->group.object.parent;
                 if (b->shape.tag == PF_SHAPE_TRI) {
-                    const float theta = b->shape.tri.radians;
-                    switch (b->shape.tri.hypotenuse) {
-                    case PF_CORNER_UL:
-                        trans = _v2f(sinf(-theta), -cosf(-theta));
-                        break;
-                    case PF_CORNER_UR:
-                        trans = _v2f(-sinf(-theta), cosf(-theta));
-                        break;
-                    default:
-                        break;
-                    }
+                    move_right_transform_by_slope(&b->shape.tri, &trans);
                 }
             }
             ch->in.impulse = _v2f(force * trans.x, force * trans.y);
@@ -417,8 +414,7 @@ void read_input(input *inp) {
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
         SDL_Delay(delay_time(16, start_tick, end_tick));
-        //printf("x:%f y:%f\n", d->world.bodies[0].position.x,
-        //       d->world.bodies[0].position.y);
+        //printf("x:%f y:%f\n", d->world.bodies[0].position.x, d->world.bodies[0].position.y);
     } while (!d->input.quit);
 }
 
@@ -448,14 +444,14 @@ void step_world(world *w) {
     apply_dpos(w);
     step_forces(w);
     solve_object_collisions(w);
-
+    //
     object_platform_relations(w);
     reset_collisions(w);
     generate_collisions(w);
-  
+    //
     solve_platform_collisions(w);
     correct_positions(w);
-
+    //
     reset_collisions(w);
 }
 
@@ -507,7 +503,8 @@ void object_platform_relations(world *w) {
             }
             if (pf_solve_collision(a, b, &m)) {
                 v2f penetration = mulv2nf(m.normal, m.penetration);
-                penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011)); // 0.00011 = magic number to stop jitter
+                // 0.00011 = magic number to stop jitter
+                penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011));
                 if (try_child_connect_parent(&m, a, b)) {
                     b->pos = addv2f(b->pos, penetration);
                 }
@@ -518,8 +515,6 @@ void object_platform_relations(world *w) {
         }
     }
 }
-
-
 
 void move_platforms(world *w) {
     {
@@ -551,7 +546,6 @@ void move_platforms(world *w) {
 
         }
     }
-
 
     {
         static float angle = 0;
