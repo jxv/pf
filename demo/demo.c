@@ -347,6 +347,18 @@ void move_left_transform_by_slope(const pf_tri *t, v2f *trans) {
     }
 }
 
+v2f move_left_on_slope_transform(const pf_tri *t) {
+    switch (t->hypotenuse) {
+    case PF_CORNER_UL:
+        return _v2f(t->sin, -t->cos);
+    case PF_CORNER_UR:
+        return _v2f(-t->sin, -t->cos);
+    default:
+        assert(false);
+        break;
+    }
+}
+
 void move_right_transform_by_slope(const pf_tri *t, v2f *trans) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
@@ -360,6 +372,76 @@ void move_right_transform_by_slope(const pf_tri *t, v2f *trans) {
     }
 }
 
+v2f move_right_on_slope_transform(const pf_tri *t) {
+    switch (t->hypotenuse) {
+    case PF_CORNER_UL:
+        return _v2f(-t->sin, t->cos);
+    case PF_CORNER_UR:
+        return _v2f(t->sin, t->cos);
+    default:
+        assert(false);
+        break;
+    }
+}
+
+void transform_move_on_slope(pf_body *a, float dt) {
+    const pf_body *b = a->group.object.parent;
+    if (!b ||
+        b->shape.tag != PF_SHAPE_TRI ||
+        a->shape.tag != PF_SHAPE_RECT ||
+        a->gravity.dir != PF_DIR_D) {
+        return;
+    }
+    if (nearzerof(a->in.impulse.x)) {
+        a->in.impulse.x = 0;
+        return;
+    }
+    if (nearzerof(a->in.impulse.x) && !nearzerof(a->in.impulse.y)) {
+        a->in.impulse.x = 0;
+        return;
+    }
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb a_box = pf_body_to_aabb(a);
+    const pf_aabb b_box = pf_body_to_aabb(b);
+    const float force = fabsf(a->in.impulse.x);
+    const float dt2 = dt * 2; // adjusted to account for round off errors
+
+    float weight = 1;
+
+    if (a->in.impulse.x < 0) {
+        const v2f slope = mulv2nf(move_left_on_slope_transform(t), force);
+        const v2f pure = _v2f(-force, 0);
+
+        const float will_over = b_box.min.x - (a_box.min.x + slope.x * dt2);
+        if (will_over > 0) {
+            const float is_within = a_box.min.x - b_box.min.x;
+            if (is_within > 0) {
+                weight = is_within / (is_within + will_over);
+            } else {
+                weight = 0;
+            }
+        }
+
+        a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1 - weight));
+    } else {
+        assert(a->in.impulse.x > 0);
+        const v2f slope = mulv2nf(move_right_on_slope_transform(t), force);
+        const v2f pure = _v2f(force, 0);
+
+        const float is_over = b_box.min.x - a_box.min.x;
+        if (is_over > 0) {
+            const float will_within = (a_box.min.x + slope.x * dt2) - b_box.min.x;
+            if (will_within > 0) {
+                weight = will_within / (will_within + is_over);
+            } else {
+                weight = 0;
+            }
+        }
+
+        a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1.0f - weight));
+    }
+}
+
 void loop_demo(demo *d) {
     d->input.quit = false;
     do {
@@ -369,26 +451,10 @@ void loop_demo(demo *d) {
         pf_body *ch = &d->world.bodies[2];
         const float force = 20;
         if (d->input.left) {
-            v2f trans = _v2f(-1, 0);
-            // Adjust for parent's angle
-            if (ch->group.object.parent) {
-                const pf_body *b = ch->group.object.parent;
-                if (b->shape.tag == PF_SHAPE_TRI) {
-                    move_left_transform_by_slope(&b->shape.tri, &trans);
-                }
-            }
-            ch->in.impulse = _v2f(force * trans.x, force * trans.y);
+            ch->in.impulse = _v2f(-force, 0);
         }
         if (d->input.right) {
-            v2f trans = _v2f(1, 0);
-            // Adjust for parent's angle
-            if (ch->group.object.parent) {
-                const pf_body *b = ch->group.object.parent;
-                if (b->shape.tag == PF_SHAPE_TRI) {
-                    move_right_transform_by_slope(&b->shape.tri, &trans);
-                }
-            }
-            ch->in.impulse = _v2f(force * trans.x, force * trans.y);
+            ch->in.impulse = _v2f(force, 0);
         }
         if (d->input.up) {
             ch->in.impulse = _v2f(0, -force);
@@ -396,6 +462,7 @@ void loop_demo(demo *d) {
         if (d->input.down && !ch->group.object.parent) {
             ch->in.impulse = _v2f(0, force);
         }
+        transform_move_on_slope(ch, d->world.dt);
         if (d->input.change_axis) {
             d->world.platform_dir = !d->world.platform_dir;
         }
