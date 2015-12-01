@@ -49,61 +49,7 @@ typedef struct {
 void make_demo(demo *d, SDL_Renderer *renderer);
 void loop_demo(demo *d);
 
-void run_test() {
-    const int n = 6;
-    const pf_aabb boxes[] = {
-        {
-            .min = _v2f(-4,-4),
-            .max = _v2f(-2,-2),
-        },
-        {
-            .min = _v2f(-1, 1),
-            .max = _v2f( 2, 5),
-        },
-        {
-            .min = _v2f( 1,-4),
-            .max = _v2f( 2,-2),
-        },
-        {
-            .min = _v2f( 4,-1),
-            .max = _v2f( 6, 1),
-        },
-        {
-            .min = _v2f(-10,-10),
-            .max = _v2f( 10, 10),
-        },
-        {
-            .min = _v2f(-1,-1),
-            .max = _v2f( 1, 1),
-        },
-    };
-
-    pf_body a = _pf_body(), b = _pf_body();
-
-    b.pos = _v2f(0, -0.5);
-    b.shape.tag = PF_SHAPE_TRI;
-    b.shape.tri = _pf_tri(_v2f(3,2), false, PF_CORNER_DR);
-
-    for (int i = 0; i < n; i++) {
-        v2f normal;
-        float penetration;
-
-        a.pos = mulv2nf(addv2f(boxes[i].min, boxes[i].max), 0.5);
-        a.shape.tag = PF_SHAPE_RECT;
-        a.shape.radii = mulv2nf(subv2f(boxes[i].max, boxes[i].min), 0.5);
-        //a.shape.tag = PF_SHAPE_CIRCLE;
-        //a.shape.radius = (boxes[i].max.y - boxes[i].min.y) * 0.5;
-
-        printf("[%i]", i);
-        if (pf_body_to_body(&a, &b, &normal, &penetration)) {
-            printf(" (%.2f,%.2f) %.2f", normal.x, normal.y, penetration);
-        }
-        putchar('\n');
-    }
-}
-
 int main() {
-    //run_test();
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
         return EXIT_FAILURE;
     }
@@ -620,7 +566,6 @@ void update_dpos(world *w) {
 }
 
 void apply_dpos(world *w) {
-    //printf("%d: %f, %f\n", 2, w->bodies[2].pos.x, w->bodies[2].pos.y);
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_DYNAMIC) {
             pf_apply_dpos(&w->bodies[i]);
@@ -723,6 +668,5 @@ void render_demo(demo *d) {
         default: assert(false);
         }
     }
-    //putchar('\n');
     SDL_RenderPresent(d->renderer);
 }
