@@ -1329,3 +1329,137 @@ pf_shape pf_rect(float w, float h) {
         .radii = _v2f(w, h),
     };
 }
+
+v2f pf_move_left_on_slope_transform(const pf_tri *t) {
+    switch (t->hypotenuse) {
+    case PF_CORNER_UL:
+        return _v2f(t->sin, t->cos);
+    case PF_CORNER_UR:
+        return _v2f(-t->sin, -t->cos);
+    case PF_CORNER_DL:
+        return _v2f(-t->sin, t->cos); // TODO: test
+    case PF_CORNER_DR:
+        return _v2f(t->sin, -t->cos); // TODO: test
+    default:
+        assert(false);
+        break;
+    }
+}
+
+v2f pf_move_right_on_slope_transform(const pf_tri *t) {
+    switch (t->hypotenuse) {
+    case PF_CORNER_UL:
+        return _v2f(-t->sin, -t->cos);
+    case PF_CORNER_UR:
+        return _v2f(t->sin, t->cos);
+    case PF_CORNER_DL:
+        return _v2f(t->sin, -t->cos); // TODO: test
+    case PF_CORNER_DR:
+        return _v2f(-t->sin, t->cos); // TODO: test
+    default:
+        assert(false);
+        break;
+    }
+}
+
+void pf_transform_move_on_slope(pf_body *a, float dt_) {
+    const float dt = 2 * dt_; // Adjust for round off
+    const pf_body *b = a->group.object.parent;
+    if (!b ||
+        b->shape.tag != PF_SHAPE_TRI ||
+        a->shape.tag != PF_SHAPE_RECT ||
+        a->gravity.dir != PF_DIR_D) {
+        return;
+    }
+    if (nearzerof(a->in.impulse.x)) {
+        a->in.impulse.x = 0;
+        return;
+    }
+    if (nearzerof(a->in.impulse.x) && !nearzerof(a->in.impulse.y)) {
+        a->in.impulse.x = 0;
+        return;
+    }
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb a_box = pf_body_to_aabb(a);
+    const pf_aabb b_box = pf_body_to_aabb(b);
+    const float force = fabsf(a->in.impulse.x);
+
+    float weight = 1;
+
+    if (a->in.impulse.x < 0) {
+        const v2f slope = mulv2nf(pf_move_left_on_slope_transform(t), force);
+        const v2f pure = _v2f(-force, 0);
+
+        // TODO: refactor
+        switch (t->hypotenuse) {
+        case PF_CORNER_UL: {
+            const float is_over = a_box.max.x - b_box.max.x;
+            if (is_over > 0) {
+                const float will_within = b_box.max.x - (a_box.max.x + slope.x * dt);
+                if (will_within > 0) {
+                    weight = will_within / (will_within + is_over);
+                } else {
+                    weight = 0;
+                }
+            }
+            break;
+        }
+        case PF_CORNER_UR: {
+            const float will_over = b_box.min.x - (a_box.min.x + slope.x * dt);
+            if (will_over > 0) {
+                const float is_within = a_box.min.x - b_box.min.x;
+                if (is_within > 0) {
+                    weight = is_within / (is_within + will_over);
+                } else {
+                    weight = 0;
+                }
+            }
+            break;
+        }
+        case PF_CORNER_DL: // TODO
+        case PF_CORNER_DR: // TODO
+        default:
+            assert(false);
+        }
+
+        a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1 - weight));
+    } else {
+        assert(a->in.impulse.x > 0);
+        const v2f slope = mulv2nf(pf_move_right_on_slope_transform(t), force);
+        const v2f pure = _v2f(force, 0);
+
+        // TODO: refactor
+        switch (t->hypotenuse) {
+        case PF_CORNER_UL: {
+            const float will_over = (a_box.max.x + slope.x * dt) - b_box.max.x;
+            if (will_over > 0) {
+                const float is_within = b_box.max.x - a_box.max.x;
+                if (is_within > 0) {
+                    weight = is_within / (is_within + will_over);
+                } else {
+                    weight = 0;
+                }
+            }
+            break;
+        }
+        case PF_CORNER_UR: {
+            const float is_over = b_box.min.x - a_box.min.x;
+            if (is_over > 0) {
+                const float will_within = (a_box.min.x + slope.x * dt) - b_box.min.x;
+                if (will_within > 0) {
+                    weight = will_within / (will_within + is_over);
+                } else {
+                    weight = 0;
+                }
+            }
+            break;
+        }
+        case PF_CORNER_DL: // TODO
+        case PF_CORNER_DR: // TODO
+        default:
+            assert(false);
+        }
+
+        a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1.0f - weight));
+    }
+}
