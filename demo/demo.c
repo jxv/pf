@@ -78,7 +78,6 @@ void run_test() {
         },
     };
 
-
     pf_body a = _pf_body(), b = _pf_body();
 
     b.pos = _v2f(0, -0.5);
@@ -414,6 +413,7 @@ float normf(float x) {
     return nearzerof(x) ? 0 : (x > 0 ? 1 : -1);
 }
 
+// TODO: into library
 bool try_child_connect_parent(const pf_manifold *m, pf_body *a, pf_body *b) {
     if (a->mass == 0 &&
         b->mass != 0 &&
@@ -440,6 +440,8 @@ void object_platform_relations(world *w) {
         pf_body *a = &w->bodies[i];
         pf_manifold m;
 
+        // TODO: refactor (some may go into library)
+
         // Decide to detach from parent
         if (a->group.object.parent) {
             if (!pf_solve_collision(a, a->group.object.parent, &m)) {
@@ -449,7 +451,7 @@ void object_platform_relations(world *w) {
         if (a->group.object.parent) {
             continue;
         }
-
+ 
         // Find parent to to attach
         for (int j = i + 1; j < w->body_num; j++) {
             pf_body *b = &w->bodies[j];
@@ -521,6 +523,7 @@ void move_platforms(world *w) {
 
 void update_object_positions_on_platforms(world *w) {
     for (int i = 0; i < w->body_num; i++) {
+        // TODO: into library
         if (w->bodies[i].mode == PF_MODE_DYNAMIC &&
             w->bodies[i].group.object.parent &&
             w->bodies[i].group.object.parent->mode == PF_MODE_STATIC) {
@@ -566,6 +569,7 @@ void solve_object_collisions(world *w) {
             pf_body *a = &w->bodies[km->a_key];
             pf_body *b = &w->bodies[km->b_key];
 
+            // TODO: into library
             if (!((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
                  (a->group.object.parent != b && b->group.object.parent != a))) {
                 pf_body *item = &w->bodies[1]; // small circle
@@ -593,6 +597,7 @@ void solve_platform_collisions(world *w) {
             pf_body *a = &w->bodies[km->a_key];
             pf_body *b = &w->bodies[km->b_key];
 
+            // TODO: into library
             if ((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
                 (a->group.object.parent != b && b->group.object.parent != a)) {
                 if (b->mode == PF_MODE_STATIC)
@@ -605,8 +610,6 @@ void solve_platform_collisions(world *w) {
 }
 
 void update_dpos(world *w) {
-
-
     for (int i = 0; i < w->body_num; i++) {
         pf_body *a = &w->bodies[i];
         if (a->mode == PF_MODE_DYNAMIC) {
