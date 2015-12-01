@@ -83,7 +83,7 @@ void run_test() {
 
     b.pos = _v2f(0, -0.5);
     b.shape.tag = PF_SHAPE_TRI;
-    b.shape.tri = _pf_tri(_v2f(3,2), PF_CORNER_DR);
+    b.shape.tri = _pf_tri(_v2f(3,2), false, PF_CORNER_DR);
 
     for (int i = 0; i < n; i++) {
         v2f normal;
@@ -157,7 +157,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->gravity.accel = 1;;
         a->gravity.cap = 1;
-        a->shape = pf_rect(2,3.5);
+        a->shape = pf_rect(2,0.5);
         a->pos = _v2f(14,4);
         pf_pillow_esque(a);
     }
@@ -223,7 +223,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(3,0.5), PF_CORNER_UL);
+        a->shape.tri = _pf_tri(_v2f(3,0.5), true, PF_CORNER_UL);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(9,20);
     }
@@ -234,7 +234,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(0.5,5), PF_CORNER_UR);
+        a->shape.tri = _pf_tri(_v2f(0.5,5), false, PF_CORNER_UR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(1,8);
     }
@@ -245,7 +245,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(2,2.8), PF_CORNER_UR);
+        a->shape.tri = _pf_tri(_v2f(2,2.8), true, PF_CORNER_UR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(21,20);
     }
@@ -257,7 +257,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(4,2), PF_CORNER_DL);
+        a->shape.tri = _pf_tri(_v2f(4,2), false, PF_CORNER_DL);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(6,5);
     }
@@ -268,7 +268,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(3,1), PF_CORNER_DR);
+        a->shape.tri = _pf_tri(_v2f(3,1), false, PF_CORNER_DR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(23,5);
     }
@@ -279,7 +279,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape.tri = _pf_tri(_v2f(0.5, 5), PF_CORNER_DR);
+        a->shape.tri = _pf_tri(_v2f(0.5, 5), false, PF_CORNER_DR);
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(1,18);
     }
@@ -298,23 +298,13 @@ void make_demo(demo *d, SDL_Renderer *renderer) {
 void read_input(input *inp) {
     SDL_Event event;
     memset(inp, 0, sizeof(*inp));
+    
+    const Uint8 *ks = SDL_GetKeyboardState(NULL);
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_KEYDOWN) {
             switch (event.key.keysym.sym) {
             case SDLK_ESCAPE:
                 inp->quit = true;
-                break;
-            case SDLK_LEFT:
-                inp->left = true;
-                break;
-            case SDLK_UP:
-                inp->up = true;
-                break;
-            case SDLK_RIGHT:
-                inp->right = true;
-                break;
-            case SDLK_DOWN:
-                inp->down = true;
                 break;
             case SDLK_SPACE:
                 inp->change_axis = true;
@@ -324,6 +314,12 @@ void read_input(input *inp) {
             }
         }
     }
+
+    inp->left |= !!ks[SDL_SCANCODE_LEFT];
+    inp->right |= !!ks[SDL_SCANCODE_RIGHT];
+    inp->down |= !!ks[SDL_SCANCODE_DOWN];
+    inp->up |= !!ks[SDL_SCANCODE_UP];
+
 }
 
 unsigned int delay_time(unsigned int goal, unsigned int start, unsigned int end) {
@@ -337,7 +333,7 @@ void render_demo(demo *d);
 void move_left_transform_by_slope(const pf_tri *t, v2f *trans) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
-        *trans = _v2f(t->sin, -t->cos);
+        *trans = _v2f(t->sin, t->cos);
         break;
     case PF_CORNER_UR:
         *trans = _v2f(-t->sin, -t->cos);
@@ -350,7 +346,7 @@ void move_left_transform_by_slope(const pf_tri *t, v2f *trans) {
 v2f move_left_on_slope_transform(const pf_tri *t) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
-        return _v2f(t->sin, -t->cos);
+        return _v2f(t->sin, t->cos);
     case PF_CORNER_UR:
         return _v2f(-t->sin, -t->cos);
     default:
@@ -362,7 +358,7 @@ v2f move_left_on_slope_transform(const pf_tri *t) {
 void move_right_transform_by_slope(const pf_tri *t, v2f *trans) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
-        *trans = _v2f(-t->sin, t->cos);
+        *trans = _v2f(-t->sin, -t->cos);
         break;
     case PF_CORNER_UR:
         *trans = _v2f(t->sin, t->cos);
@@ -375,7 +371,7 @@ void move_right_transform_by_slope(const pf_tri *t, v2f *trans) {
 v2f move_right_on_slope_transform(const pf_tri *t) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
-        return _v2f(-t->sin, t->cos);
+        return _v2f(-t->sin, -t->cos);
     case PF_CORNER_UR:
         return _v2f(t->sin, t->cos);
     default:
@@ -404,7 +400,6 @@ void transform_move_on_slope(pf_body *a, float dt) {
     const pf_aabb a_box = pf_body_to_aabb(a);
     const pf_aabb b_box = pf_body_to_aabb(b);
     const float force = fabsf(a->in.impulse.x);
-    const float dt2 = dt * 2; // adjusted to account for round off errors
 
     float weight = 1;
 
@@ -412,14 +407,33 @@ void transform_move_on_slope(pf_body *a, float dt) {
         const v2f slope = mulv2nf(move_left_on_slope_transform(t), force);
         const v2f pure = _v2f(-force, 0);
 
-        const float will_over = b_box.min.x - (a_box.min.x + slope.x * dt2);
-        if (will_over > 0) {
-            const float is_within = a_box.min.x - b_box.min.x;
-            if (is_within > 0) {
-                weight = is_within / (is_within + will_over);
-            } else {
-                weight = 0;
+        switch (t->hypotenuse) {
+        case PF_CORNER_UL: {
+            const float is_over = a_box.max.x - b_box.max.x;
+            if (is_over > 0) {
+                const float will_within = b_box.max.x - (a_box.max.x + slope.x * dt);
+                if (will_within > 0) {
+                    weight = will_within / (will_within + is_over);
+                } else {
+                    weight = 0;
+                }
             }
+            break;
+        }
+        case PF_CORNER_UR: {
+            const float will_over = b_box.min.x - (a_box.min.x + slope.x * dt);
+            if (will_over > 0) {
+                const float is_within = a_box.min.x - b_box.min.x;
+                if (is_within > 0) {
+                    weight = is_within / (is_within + will_over);
+                } else {
+                    weight = 0;
+                }
+            }
+            break;
+        }
+        default:
+            assert(false);
         }
 
         a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1 - weight));
@@ -428,14 +442,33 @@ void transform_move_on_slope(pf_body *a, float dt) {
         const v2f slope = mulv2nf(move_right_on_slope_transform(t), force);
         const v2f pure = _v2f(force, 0);
 
-        const float is_over = b_box.min.x - a_box.min.x;
-        if (is_over > 0) {
-            const float will_within = (a_box.min.x + slope.x * dt2) - b_box.min.x;
-            if (will_within > 0) {
-                weight = will_within / (will_within + is_over);
-            } else {
-                weight = 0;
+        switch (t->hypotenuse) {
+        case PF_CORNER_UL: {
+            const float will_over = (a_box.max.x + slope.x * dt) - b_box.max.x;
+            if (will_over > 0) {
+                const float is_within = b_box.max.x - a_box.max.x;
+                if (is_within > 0) {
+                    weight = is_within / (is_within + will_over);
+                } else {
+                    weight = 0;
+                }
             }
+            break;
+        }
+        case PF_CORNER_UR: {
+            const float is_over = b_box.min.x - a_box.min.x;
+            if (is_over > 0) {
+                const float will_within = (a_box.min.x + slope.x * dt) - b_box.min.x;
+                if (will_within > 0) {
+                    weight = will_within / (will_within + is_over);
+                } else {
+                    weight = 0;
+                }
+            }
+            break;
+        }
+        default:
+            assert(false);
         }
 
         a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1.0f - weight));
@@ -449,7 +482,7 @@ void loop_demo(demo *d) {
         read_input(&d->input);
         //
         pf_body *ch = &d->world.bodies[2];
-        const float force = 20;
+        const float force = 15;
         if (d->input.left) {
             ch->in.impulse = _v2f(-force, 0);
         }
@@ -462,7 +495,7 @@ void loop_demo(demo *d) {
         if (d->input.down && !ch->group.object.parent) {
             ch->in.impulse = _v2f(0, force);
         }
-        transform_move_on_slope(ch, d->world.dt);
+        transform_move_on_slope(ch, d->world.dt * 2);
         if (d->input.change_axis) {
             d->world.platform_dir = !d->world.platform_dir;
         }
@@ -757,15 +790,18 @@ void render_demo(demo *d) {
     SDL_SetRenderDrawColor(d->renderer, 0x00, 0x00, 0x00, 0xff);
     SDL_RenderClear(d->renderer);
     SDL_SetRenderDrawColor(d->renderer, 0xff, 0xff, 0xff, 0xff);
+
+    const float scale = 10; 
+
     for (int i = 0; i < d->world.body_num; i++) {
         const pf_body *a = &d->world.bodies[i];
         switch (a->shape.tag) {
         case PF_SHAPE_RECT: {
             SDL_Rect rect = {
-                .x = 10 * (a->pos.x - a->shape.radii.x),
-                .y = 10 * (a->pos.y - a->shape.radii.y),
-                .w = 10 * (a->shape.radii.x * 2.0f),
-                .h = 10 * (a->shape.radii.y * 2.0f),
+                .x = scale * (a->pos.x - a->shape.radii.x),
+                .y = scale * (a->pos.y - a->shape.radii.y),
+                .w = scale * (a->shape.radii.x * 2.0f),
+                .h = scale * (a->shape.radii.y * 2.0f),
             };
             SDL_RenderDrawRect(d->renderer, &rect);
             break;
@@ -776,10 +812,10 @@ void render_demo(demo *d) {
             for (int i = 0; i < len; i++) {
                 const float percent = (float)i * 2.0f * M_PI;
                 const float theta = percent / (float)(len - 1);
-                lines[i].x = 10
+                lines[i].x = scale
                     * ((float)a->pos.x
                         + (float)a->shape.radius * cosf(theta));
-                lines[i].y = 10
+                lines[i].y = scale
                     * ((float)a->pos.y
                     + (float)a->shape.radius * sinf(theta));
             }
@@ -789,28 +825,37 @@ void render_demo(demo *d) {
         }
         case PF_SHAPE_TRI: {
             pf_aabb tri = pf_body_to_aabb(a);
-            tri.min = mulv2nf(tri.min, 10);
-            tri.max = mulv2nf(tri.max, 10);
+            const bool noLine = !a->shape.tri.line;
+            tri.min = mulv2nf(tri.min, scale);
+            tri.max = mulv2nf(tri.max, scale);
             switch (a->shape.tri.hypotenuse) {
             case PF_CORNER_UL:
                 SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.min.y); // dl-ur
-                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.max.y); // dl-dr
-                SDL_RenderDrawLine(d->renderer, tri.max.x, tri.min.y, tri.max.x, tri.max.y); // ur-dr
+                if (noLine) {
+                    SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.max.y); // dl-dr
+                    SDL_RenderDrawLine(d->renderer, tri.max.x, tri.min.y, tri.max.x, tri.max.y); // ur-dr
+                }
                 break;
            case PF_CORNER_UR:
                 SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.max.y); // ul-dr
-                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.max.y); // dl-dr
-                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.min.x, tri.max.y); // ul-dl
+                if (noLine) {
+                    SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.max.y); // dl-dr
+                    SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.min.x, tri.max.y); // ul-dl
+                }
                 break;
             case PF_CORNER_DL:
                 SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.max.y); // ul-dr
-                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.min.y); // ul-ur
-                SDL_RenderDrawLine(d->renderer, tri.max.x, tri.min.y, tri.max.x, tri.max.y); // ur-dr
+                if (noLine) {
+                    SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.min.y); // ul-ur
+                    SDL_RenderDrawLine(d->renderer, tri.max.x, tri.min.y, tri.max.x, tri.max.y); // ur-dr
+                }
                 break;
             case PF_CORNER_DR:
                 SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.min.y); // dl-ur
-                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.min.y); // ul-ur
-                SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.min.x, tri.max.y); // ul-dl
+                if (noLine) {
+                    SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.max.x, tri.min.y); // ul-ur
+                    SDL_RenderDrawLine(d->renderer, tri.min.x, tri.min.y, tri.min.x, tri.max.y); // ul-dl
+                }
                 break;
           default:
                 assert(false);

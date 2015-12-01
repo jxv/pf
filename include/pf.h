@@ -25,6 +25,7 @@ typedef enum {
 
 typedef struct {
     v2f radii;
+    bool line;  // use slope only
     pf_corner hypotenuse;
     float radians;
     float m;    // slope
@@ -153,7 +154,7 @@ void pf_super_ball_esque(pf_body *a);
 void pf_pillow_esque(pf_body *a);
 void pf_static_esque(pf_body *a);
 
-pf_tri _pf_tri(v2f radii, pf_corner hypotenuse); 
+pf_tri _pf_tri(v2f radii, bool line, pf_corner hypotenuse); 
 pf_body _pf_body();
 pf_shape pf_circle(float radius);
 pf_shape pf_box(float side);

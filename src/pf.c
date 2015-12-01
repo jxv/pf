@@ -953,16 +953,123 @@ bool pf_rect_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float *p
     return *penetration > 0;
 }
 
+
+bool pf_rect_to_tri_ul_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+    // Collisions for sides
+    if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
+        return false;
+    }
+    // Collision against slope
+    const v2f a_ul = _v2f(r_box.min.x, r_box.min.y); // rect left
+    const v2f a_dr = _v2f(r_box.max.x, r_box.max.y); // rect right
+    const v2f b_dl = _v2f(t_box.min.x, t_box.max.y); // or ur
+    const float l_overlap = pf_project_slope(&t->proj, &a_ul, &b_dl);
+    const float r_overlap = pf_project_slope(&t->proj, &b_dl, &a_dr);
+    if (l_overlap <= 0 || r_overlap <= 0) { // No overlap means no collision
+        return false;
+    }
+    // Pick least overlapped
+    const float pen = fminf(l_overlap, r_overlap);
+    if (pen < *penetration) { // treat corners like a rect
+        *penetration = pen;
+        *normal = l_overlap > r_overlap ? t->normal : negv2f(t->normal);
+    }
+    return true;
+}
+
+bool pf_rect_to_tri_ur_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+    // Collisions for sides
+    if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
+        return false;
+    }
+    // Collision against slope
+    const v2f a_dl = _v2f(r_box.min.x, r_box.max.y); // rect left
+    const v2f a_ur = _v2f(r_box.max.x, r_box.min.y); // rect right
+    const v2f b_dr = _v2f(t_box.max.x, t_box.max.y); // or ul
+    const float l_overlap = pf_project_slope(&t->proj, &a_dl, &b_dr);
+    const float r_overlap = pf_project_slope(&t->proj, &b_dr, &a_ur);
+    if (l_overlap <= 0 || r_overlap <= 0) { // No overlap means no collision
+        return false;
+    }
+    // Pick least overlapped
+    const float pen = fminf(l_overlap, r_overlap);
+    if (pen < *penetration) { // treat corners like a rect
+        *penetration = pen;
+        *normal = l_overlap < r_overlap ? t->normal : negv2f(t->normal);
+    }
+    return true;
+}
+
+bool pf_rect_to_tri_dl_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+    // Collisions for sides
+    if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
+        return false;
+    }
+    // Collision against slope
+    const v2f a_dl = _v2f(r_box.min.x, r_box.max.y); // rect left
+    const v2f a_ur = _v2f(r_box.max.x, r_box.min.y); // rect right
+    const v2f b_dr = _v2f(t_box.max.x, t_box.max.y); // or ul
+    const float l_overlap = pf_project_slope(&t->proj, &a_dl, &b_dr);
+    const float r_overlap = pf_project_slope(&t->proj, &b_dr, &a_ur);
+    if (l_overlap <= 0 || r_overlap <= 0) { // No overlap means no collision
+        return false;
+    }
+    // Pick least overlapped
+    const float pen = fminf(l_overlap, r_overlap);
+    if (pen < *penetration) { // treat corners like a rect
+        *penetration = pen;
+        *normal = l_overlap < r_overlap ? t->normal : negv2f(t->normal);
+    }
+    return true;
+}
+
+bool pf_rect_to_tri_dr_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const pf_tri *t = &b->shape.tri;
+    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+    // Collisions for sides
+    if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
+        return false;
+    }
+    // Collision against slope
+    const v2f a_ul = _v2f(r_box.min.x, r_box.min.y); // rect left
+    const v2f a_dr = _v2f(r_box.max.x, r_box.max.y); // rect right
+    const v2f b_dl = _v2f(t_box.min.x, t_box.max.y); // or ul
+    const float l_overlap = pf_project_slope(&t->proj, &a_ul, &b_dl);
+    const float r_overlap = pf_project_slope(&t->proj, &b_dl, &a_dr);
+    if (l_overlap <= 0 || r_overlap <= 0) { // No overlap means no collision
+        return false;
+    }
+    // Pick least overlapped
+    const float pen = fminf(l_overlap, r_overlap);
+    if (pen < *penetration) { // treat corners like a rect
+        *penetration = pen;
+        *normal = l_overlap > r_overlap ? t->normal : negv2f(t->normal);
+    }
+    return true;
+
+}
+
 bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+    const bool line = b->shape.tri.line;
     switch (b->shape.tri.hypotenuse) {
     case PF_CORNER_UL:
-        return pf_rect_to_tri_ul(a, b, normal, penetration);
+        return (line ? pf_rect_to_tri_ul_line : pf_rect_to_tri_ul)(a, b, normal, penetration);
     case PF_CORNER_UR:
-        return pf_rect_to_tri_ur(a, b, normal, penetration);
+        return (line ? pf_rect_to_tri_ur_line : pf_rect_to_tri_ur)(a, b, normal, penetration);
     case PF_CORNER_DL:
-        return pf_rect_to_tri_dl(a, b, normal, penetration);
+        return (line ? pf_rect_to_tri_dl_line : pf_rect_to_tri_dl)(a, b, normal, penetration);
     case PF_CORNER_DR:
-        return pf_rect_to_tri_dr(a, b, normal, penetration);
+        return (line ? pf_rect_to_tri_dr_line : pf_rect_to_tri_dr)(a, b, normal, penetration);
     default:
         assert(false);
     }
@@ -1153,10 +1260,11 @@ v2f tri_normal(const v2f *radii, pf_corner hypotenuse) {
     }
 }
 
-pf_tri _pf_tri(v2f radii, pf_corner hypotenuse) {
+pf_tri _pf_tri(v2f radii, bool line, pf_corner hypotenuse) {
     const float radians = tri_angle(&radii, hypotenuse);
     return (pf_tri) {
         .radii = radii,
+        .line = line,
         .hypotenuse = hypotenuse,
         .radians = radians,
         .m = pf_tri_slope(&radii, hypotenuse),
