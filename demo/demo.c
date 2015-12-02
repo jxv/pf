@@ -6,6 +6,13 @@
 #include <SDL2/SDL.h>
 #include <math.h>
 
+#define IGNORE_MP\
+                const int MOVING_PLATFORM = 3;\
+                if ((km->a_key == MOVING_PLATFORM && km->manifold.normal.y >= 0) ||\
+                    (km->b_key == MOVING_PLATFORM && km->manifold.normal.y <= 0)) {\
+                    continue;\
+                }\
+ 
 typedef struct {
     int key;
     const pf_body *body;
@@ -64,12 +71,33 @@ int main() {
     return EXIT_SUCCESS;
 }
 
+void world_add_tri(world *w, float rw, float rh, float px, float py, pf_corner hypotenuse, bool line) {
+    pf_body *a = &w->bodies[w->body_num];
+    w->body_num++;
+    *a = _pf_body();
+    a->mode = PF_MODE_STATIC;
+    pf_body_set_mass(0, a);
+    a->shape.tri = _pf_tri(_v2f(rw,rh), line, hypotenuse);
+    a->shape.tag = PF_SHAPE_TRI;
+    a->pos = _v2f(px, py);
+}
+
+void world_add_rect(world *w, float rw, float rh, float px, float py) {
+    pf_body *a = &w->bodies[w->body_num];
+    w->body_num++;
+    *a = _pf_body();
+    a->mode = PF_MODE_STATIC;
+    pf_body_set_mass(0, a);
+    a->shape = pf_rect(rw, rh);
+    a->pos = _v2f(px, py);
+}
+
 void make_world(world *w) {
     w->body_num = 0;
     w->manifold_num = 0;
     w->dt = 1.0 / 60.0;
     w->iterations = 1;
-    w->platform_dir = false;
+    w->platform_dir = true; 
 
     // Large circle
     {
@@ -79,7 +107,7 @@ void make_world(world *w) {
         a->gravity.accel = 1;
         a->gravity.cap = 0.5;
         a->shape = pf_circle(1.2);
-        a->pos = _v2f(4,5);
+        a->pos = _v2f(30,5);
         pf_bouncy_ball_esque(a);
     }
 
@@ -102,7 +130,7 @@ void make_world(world *w) {
         *a = _pf_body();
         a->gravity.accel = 1;
         a->gravity.cap = 0.5;
-        a->shape = pf_rect(2,0.5);
+        a->shape = pf_rect(2,1);
         a->pos = _v2f(14,4);
         pf_pillow_esque(a);
     }
@@ -114,10 +142,11 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape = pf_rect(7,0.2);
-        a->pos = _v2f(8,16.25);
+        a->shape = pf_rect(24.6, 1.2);
+        a->pos = _v2f(32,38.4);
     }
 
+    /*
     // Walls
     // Top
     {
@@ -126,8 +155,8 @@ void make_world(world *w) {
         *a = _pf_body();
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
-        a->shape = pf_rect(32,0.5);
-        a->pos = _v2f(0,0);
+        a->shape = pf_rect(32, 0.5);
+        a->pos = _v2f(32, 0);
     }
     // Bottom
     {
@@ -137,7 +166,7 @@ void make_world(world *w) {
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(32,0.5);
-        a->pos = _v2f(0,24);
+        a->pos = _v2f(32, 24 * 2);
     }
     // Left
     {
@@ -147,7 +176,7 @@ void make_world(world *w) {
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->shape = pf_rect(0.5,24);
-        a->pos = _v2f(0,0);
+        a->pos = _v2f(0, 24);
     }
     // Right
     {
@@ -157,9 +186,11 @@ void make_world(world *w) {
         a->mode = PF_MODE_STATIC;
         pf_body_set_mass(0, a);
         a->mode = PF_MODE_STATIC;
-        a->shape = pf_rect(0.5,24);
-        a->pos = _v2f(32,0);
+        a->shape = pf_rect(0.5, 24);
+        a->pos = _v2f(32 * 2, 24);
     }
+    */
+    /*
     // Triangles
     // Upper left
     {
@@ -228,6 +259,40 @@ void make_world(world *w) {
         a->shape.tag = PF_SHAPE_TRI;
         a->pos = _v2f(1,18);
     }
+    */
+
+    // Bottom Platform
+    {
+        const float x = 32;
+        const float y = 33.6;
+
+        world_add_tri(w, 2.95, 0.8,  x - 11, y - 2.8, PF_CORNER_UL, false);
+        world_add_rect(w, 2.95, 2.8, x - 11, y + 0.8);
+        world_add_rect(w, 8.05, 3.6, x + 0,  y + 0);
+        world_add_rect(w, 2.95, 2.8, x + 11, y + 0.8);
+        world_add_tri(w, 2.95, 0.8,  x + 11, y - 2.8, PF_CORNER_UR, false);
+    }
+    // Top Platform
+    {
+        const float x = 27;
+        const float y = 33.6 - 6.8 - 3.6;
+        const float sx = 1.2;
+        const float h = 0.001;
+
+        world_add_tri(w, 2.4 * sx, 0.8,  x + sx * (- 8.2 - 2.4), y - 0.8, PF_CORNER_UR, true);
+        world_add_rect(w, 8.2 * sx , h, x, y + h);
+        world_add_tri(w, 2.8 * sx, 0.25,  x + sx * (8.2 + 2.8), y - 0.25, PF_CORNER_UL, true);
+        world_add_tri(w, 2.4 * sx, 1.2,  x + sx * (8.2 + 2.8 * 2 + 2.4), y - 0.25 + 1.2, PF_CORNER_UR, true); // 0.9 is adjusted from 1.2
+        world_add_rect(w, 2.0 * sx, h, x + sx * (8.2 + 2.8 * 2 + 2.4 * 2 + 2.0), y + h - 0.25 + sx * 2);
+    }
+    // tri guard
+    {
+        const float x = 32;
+        const float y = 16;
+        world_add_tri(w, 1.9, 2.3, x - 30, y, PF_CORNER_UR, false);
+        world_add_tri(w, 1.9, 2.3, x + 30, y, PF_CORNER_UL, false);
+    }
+
 
     for (int i = 0; i < w->body_num; i++) {
         w->bodies[i].gravity.dir = PF_DIR_D;
@@ -282,7 +347,7 @@ void loop_demo(demo *d) {
         read_input(&d->input);
         //
         pf_body *ch = &d->world.bodies[2];
-        const float force = 15;
+        const float force = 25;
         if (d->input.left) {
             ch->in.impulse = _v2f(-force, 0);
         }
@@ -298,6 +363,15 @@ void loop_demo(demo *d) {
         pf_transform_move_on_slope(ch, d->world.dt);
         if (d->input.change_axis) {
             d->world.platform_dir = !d->world.platform_dir;
+        }
+        //
+        {
+            for (int i = 0; i < 3; i++) {
+                pf_body *a = &d->world.bodies[i];
+                if (a->pos.y > 80) {
+                     a->pos = _v2f(32, -20);
+                }
+            }
         }
         //
         step_world(&d->world);
@@ -394,17 +468,27 @@ void object_platform_relations(world *w) {
                 a->group.object.parent = NULL;
             }
         }
+        
         if (a->group.object.parent) {
             continue;
         }
  
         // Find parent to to attach
         for (int j = i + 1; j < w->body_num; j++) {
+
+
             pf_body *b = &w->bodies[j];
             if ((a->mass == 0 && b->mass == 0)) {
                 continue;
             }
             if (pf_solve_collision(a, b, &m)) {
+
+                const int MOVING_PLATFORM = 3;
+                if ((i == MOVING_PLATFORM && m.normal.y >= 0) ||
+                    (j == MOVING_PLATFORM && m.normal.y <= 0)) {
+                    continue;
+                }
+
                 v2f penetration = mulv2nf(m.normal, m.penetration);
                 // 0.00011 = magic number to stop jitter
                 penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011));
@@ -422,34 +506,27 @@ void object_platform_relations(world *w) {
 void move_platforms(world *w) {
     {
         static bool dir = false;
+        static float delay = 0;
         const int MOVING_PLATFORM = 3;
         pf_body *a = &w->bodies[MOVING_PLATFORM];
-        if (w->platform_dir) {
-            if (dir) {
-                if (a->pos.x < 0) {
-                    dir = false;
-                }
-            } else {
-                if (a->pos.x > 32) {
-                    dir = true;
-                }
+        if (dir) {
+            if (a->pos.x < 12) {
+                dir = false;
+                delay = 5;
             }
-            a->in.impulse = _v2f(dir ? -5 : 5, 0);
         } else {
-            if (dir) {
-                if (a->pos.y < 10) {
-                    dir = false;
-                }
-            } else {
-                if (a->pos.y > 25) {
-                    dir = true;
-                }
+            if (a->pos.x > 32 * 2 - 12) {
+                dir = true;
+                delay = 5;
             }
-            a->in.impulse = _v2f(0, dir ? -5 : 5);
-
         }
+        if (delay <= 0) {
+            a->in.impulse = _v2f(dir ? -1 : 1, 0);
+        }
+        delay -= w->dt;
     }
 
+/*
     {
         static float angle = 0;
         const int MOVING_TRIANGLE = 8;
@@ -457,7 +534,7 @@ void move_platforms(world *w) {
         angle += 2 * M_PI * w->dt * 0.3;
         a->in.impulse = _v2f(cos(angle) * 4, sin(angle * 3) * 1);
     }
-
+*/
     for (int i = 0; i < w->body_num; i++) {
         if (w->bodies[i].mode == PF_MODE_STATIC) {
             pf_update_dpos(w->dt, &w->bodies[i]);
@@ -490,6 +567,9 @@ void generate_collisions(world *w) {
             if (pf_solve_collision(a, b, &km->manifold)) {
                 km->a_key = i;
                 km->b_key = j;
+
+                IGNORE_MP
+                
                 w->manifold_num++;
                 if (w->manifold_num == MAX_MANIFOLDS) {
                     return;
@@ -515,6 +595,8 @@ void solve_object_collisions(world *w) {
             pf_body *a = &w->bodies[km->a_key];
             pf_body *b = &w->bodies[km->b_key];
 
+            IGNORE_MP
+ 
             // TODO: into library
             if (!((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
                  (a->group.object.parent != b && b->group.object.parent != a))) {
@@ -542,6 +624,8 @@ void solve_platform_collisions(world *w) {
             const pf_manifold *m = &km->manifold;
             pf_body *a = &w->bodies[km->a_key];
             pf_body *b = &w->bodies[km->b_key];
+    
+            IGNORE_MP
 
             // TODO: into library
             if ((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
@@ -577,6 +661,10 @@ void correct_positions(world *w) {
     for (int i = 0; i < w->manifold_num; i++) {
         const keys_manifold *km = &w->manifolds[i];
         const pf_manifold *m = &km->manifold;
+
+
+        IGNORE_MP
+
         pf_body *a = &w->bodies[km->a_key];
         pf_body *b = &w->bodies[km->b_key];
         if (a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) {
@@ -594,15 +682,30 @@ void render_demo(demo *d) {
     SDL_RenderClear(d->renderer);
     SDL_SetRenderDrawColor(d->renderer, 0xff, 0xff, 0xff, 0xff);
 
-    const float scale = 10; 
+    // (8,6) are 1/8 of the main arena
+    const v2f p1_pos = clampv2f(_v2f(0, 0), _v2f(64, 48), d->world.bodies[0].pos);
+    const v2f p2_pos = clampv2f(_v2f(0, 0), _v2f(64, 48), d->world.bodies[2].pos);
+
+    static v2f cam;
+    static float angle = 0;
+    angle += d->world.dt;
+    const float SCREEN_W2 = 160;
+    const float SCREEN_H2 = 120;
+    const float scale = clampf(0.3, 9, SCREEN_H2 / lenv2f(subv2f(p1_pos, p2_pos))); 
+    // v2f target = _v2f(32, 24); // center
+    static v2f target = {.x = 32, .y = 24};
+    v2f final_target = mulv2nf(addv2f(addv2f(p1_pos, p2_pos), _v2f(32, 24)), 1.0 / 3.0);
+    const float lerp_weight = 0.99;
+    target = addv2f(mulv2nf(target, lerp_weight), mulv2nf(final_target, 1 - lerp_weight));
+    cam = _v2f(SCREEN_W2 / scale - target.x, SCREEN_H2 / scale - target.y);
 
     for (int i = 0; i < d->world.body_num; i++) {
         const pf_body *a = &d->world.bodies[i];
         switch (a->shape.tag) {
         case PF_SHAPE_RECT: {
             SDL_Rect rect = {
-                .x = scale * (a->pos.x - a->shape.radii.x),
-                .y = scale * (a->pos.y - a->shape.radii.y),
+                .x = scale * (cam.x + a->pos.x - a->shape.radii.x),
+                .y = scale * (cam.y + a->pos.y - a->shape.radii.y),
                 .w = scale * (a->shape.radii.x * 2.0f),
                 .h = scale * (a->shape.radii.y * 2.0f),
             };
@@ -616,11 +719,15 @@ void render_demo(demo *d) {
                 const float percent = (float)i * 2.0f * M_PI;
                 const float theta = percent / (float)(len - 1);
                 lines[i].x = scale
-                    * ((float)a->pos.x
-                        + (float)a->shape.radius * cosf(theta));
+                    * (
+                        cam.x +
+                        (float)a->pos.x +
+                        (float)a->shape.radius * cosf(theta));
                 lines[i].y = scale
-                    * ((float)a->pos.y
-                    + (float)a->shape.radius * sinf(theta));
+                    * (
+                        cam.y +
+                        (float)a->pos.y +
+                        (float)a->shape.radius * sinf(theta));
             }
             lines[len - 1] = lines[0];
             SDL_RenderDrawLines(d->renderer, lines, len);
@@ -629,8 +736,8 @@ void render_demo(demo *d) {
         case PF_SHAPE_TRI: {
             pf_aabb tri = pf_body_to_aabb(a);
             const bool noLine = !a->shape.tri.line;
-            tri.min = mulv2nf(tri.min, scale);
-            tri.max = mulv2nf(tri.max, scale);
+            tri.min = mulv2nf(addv2f(tri.min, cam), scale);
+            tri.max = mulv2nf(addv2f(tri.max, cam), scale);
             switch (a->shape.tri.hypotenuse) {
             case PF_CORNER_UL:
                 SDL_RenderDrawLine(d->renderer, tri.min.x, tri.max.y, tri.max.x, tri.min.y); // dl-ur
