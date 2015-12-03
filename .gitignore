@@ -4,3 +4,4 @@
 *.opk
 demo/demo
 demo/release
+tests/tests
