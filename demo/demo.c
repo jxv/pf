@@ -71,7 +71,7 @@ int main() {
     return EXIT_SUCCESS;
 }
 
-void world_add_tri(world *w, float rw, float rh, float px, float py, pf_corner hypotenuse, bool line) {
+pf_body* world_add_tri(world *w, float rw, float rh, float px, float py, pf_corner hypotenuse, bool line) {
     pf_body *a = &w->bodies[w->body_num];
     w->body_num++;
     *a = _pf_body();
@@ -80,9 +80,11 @@ void world_add_tri(world *w, float rw, float rh, float px, float py, pf_corner h
     a->shape.tri = _pf_tri(_v2f(rw,rh), line, hypotenuse);
     a->shape.tag = PF_SHAPE_TRI;
     a->pos = _v2f(px, py);
+    a->group = _pf_platform();
+    return a;
 }
 
-void world_add_rect(world *w, float rw, float rh, float px, float py) {
+pf_body* world_add_rect(world *w, float rw, float rh, float px, float py) {
     pf_body *a = &w->bodies[w->body_num];
     w->body_num++;
     *a = _pf_body();
@@ -90,6 +92,8 @@ void world_add_rect(world *w, float rw, float rh, float px, float py) {
     pf_body_set_mass(0, a);
     a->shape = pf_rect(rw, rh);
     a->pos = _v2f(px, py);
+    a->group = _pf_platform();
+    return a;
 }
 
 void make_world(world *w) {
@@ -104,7 +108,7 @@ void make_world(world *w) {
         pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->gravity.accel = 1;
+        a->gravity.accel = 60;
         a->gravity.cap = 0.5;
         a->shape = pf_circle(1.2);
         a->pos = _v2f(30,5);
@@ -116,7 +120,7 @@ void make_world(world *w) {
         pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->gravity.accel = 1;
+        a->gravity.accel = 60;
         a->gravity.cap = 0.5;
         a->shape = pf_circle(1);
         a->pos = _v2f(28,2);
@@ -128,7 +132,7 @@ void make_world(world *w) {
         pf_body *a = &w->bodies[w->body_num];
         w->body_num++;
         *a = _pf_body();
-        a->gravity.accel = 1;
+        a->gravity.accel =1; 
         a->gravity.cap = 0.5;
         a->shape = pf_rect(2,1);
         a->pos = _v2f(14,4);
@@ -137,13 +141,7 @@ void make_world(world *w) {
 
     // Platform
     {
-        pf_body *a = &w->bodies[w->body_num];
-        w->body_num++;
-        *a = _pf_body();
-        a->mode = PF_MODE_STATIC;
-        pf_body_set_mass(0, a);
-        a->shape = pf_rect(24.6, 1.2);
-        a->pos = _v2f(32,38.4);
+        (void)world_add_rect(w, 24.6, 1.2, 32, 38.4);
     }
 
     /*
@@ -266,11 +264,18 @@ void make_world(world *w) {
         const float x = 32;
         const float y = 33.6;
 
-        world_add_tri(w, 2.95, 0.8,  x - 11, y - 2.8, PF_CORNER_UL, false);
-        world_add_rect(w, 2.95, 2.8, x - 11, y + 0.8);
-        world_add_rect(w, 8.05, 3.6, x + 0,  y + 0);
-        world_add_rect(w, 2.95, 2.8, x + 11, y + 0.8);
-        world_add_tri(w, 2.95, 0.8,  x + 11, y - 2.8, PF_CORNER_UR, false);
+        pf_body* a[5];
+
+        a[0] = world_add_tri(w, 2.95, 0.8,  x - 11, y - 2.8, PF_CORNER_UL, false);
+        a[1] = world_add_rect(w, 2.95, 2.8, x - 11, y + 0.8);
+        a[2] = world_add_rect(w, 8.05, 3.6, x + 0,  y + 0);
+        a[3] = world_add_rect(w, 2.95, 2.8, x + 11, y + 0.8);
+        a[4] = world_add_tri(w, 2.95, 0.8,  x + 11, y - 2.8, PF_CORNER_UR, false);
+
+        a[0]->group.platform.right = a[2];
+        a[2]->group.platform.left = a[0];
+        a[2]->group.platform.right = a[4];
+        a[4]->group.platform.left = a[2];
     }
     // Top Platform
     {
@@ -279,18 +284,29 @@ void make_world(world *w) {
         const float sx = 1.2;
         const float h = 0.001;
 
-        world_add_tri(w, 2.4 * sx, 0.8,  x + sx * (- 8.2 - 2.4), y - 0.8, PF_CORNER_UR, true);
-        world_add_rect(w, 8.2 * sx , h, x, y + h);
-        world_add_tri(w, 2.8 * sx, 0.25,  x + sx * (8.2 + 2.8), y - 0.25, PF_CORNER_UL, true);
-        world_add_tri(w, 2.4 * sx, 1.2,  x + sx * (8.2 + 2.8 * 2 + 2.4), y - 0.25 + 1.2, PF_CORNER_UR, true); // 0.9 is adjusted from 1.2
-        world_add_rect(w, 2.0 * sx, h, x + sx * (8.2 + 2.8 * 2 + 2.4 * 2 + 2.0), y + h - 0.25 + sx * 2);
+        pf_body* a[5];
+
+        a[0] = world_add_tri(w, 2.4 * sx, 0.8,  x + sx * (- 8.2 - 2.4), y - 0.8, PF_CORNER_UR, true);
+        a[1] = world_add_rect(w, 8.2 * sx , h, x, y );
+        a[2] = world_add_tri(w, 2.8 * sx, 0.25,  x + sx * (8.2 + 2.8), y - 0.25, PF_CORNER_UL, true);
+        a[3] = world_add_tri(w, 2.4 * sx, 1.2,  x + sx * (8.2 + 2.8 * 2 + 2.4), y - 0.25 * 2 + 1.2, PF_CORNER_UR, true); // 0.9 is adjusted from 1.2
+        a[4] = world_add_rect(w, 2.0 * sx, h, x + sx * (8.2 + 2.8 * 2 + 2.4 * 2 + 2.0), y - 0.25 * 2 + 1.2 * 2);
+        a[0]->group.platform.right = a[1];
+
+        for (int i = 1; i < 4; i++) {
+            a[i]->group.platform.left = a[i - 1];
+            a[i]->group.platform.right = a[i + 1];
+        }
+        
+        a[4]->group.platform.left = a[3];
     }
     // tri guard
     {
         const float x = 32;
         const float y = 16;
-        world_add_tri(w, 1.9, 2.3, x - 30, y, PF_CORNER_UR, false);
-        world_add_tri(w, 1.9, 2.3, x + 30, y, PF_CORNER_UL, false);
+        
+        (void)world_add_tri(w, 1.9, 2.3, x - 30, y, PF_CORNER_UR, false);
+        (void)world_add_tri(w, 1.9, 2.3, x + 30, y, PF_CORNER_UL, false);
     }
 
 
@@ -340,6 +356,101 @@ unsigned int delay_time(unsigned int goal, unsigned int start, unsigned int end)
 void step_world(world *w);
 void render_demo(demo *d);
 
+void transform_move_on_flat(pf_body *a, float dt_) {
+    const float dt = 2 * dt_; // Adjust for round off
+    const pf_body *b = a->group.object.parent;
+    if (!b ||
+        b->shape.tag != PF_SHAPE_RECT ||
+        a->shape.tag != PF_SHAPE_RECT ||
+        a->gravity.dir != PF_DIR_D) {
+        return;
+    }
+    if (nearzerof(a->in.impulse.x)) {
+        a->in.impulse.x = 0;
+        return;
+    }
+    if (nearzerof(a->in.impulse.x) && !nearzerof(a->in.impulse.y)) {
+        a->in.impulse.x = 0;
+        a->group.object.check_parent = true;
+        return;
+    }
+
+    const pf_aabb a_box = pf_body_to_aabb(a);
+    const pf_aabb b_box = pf_body_to_aabb(b);
+    const float force = fabsf(a->in.impulse.x);
+
+    float weight = 1;
+
+    if (a->in.impulse.x < 0) {
+
+        const v2f flat = _v2f(-force, 0);
+        v2f next = _v2f(-force, 0);
+
+        const float will_over = b_box.min.x - (a_box.min.x + flat.x * dt);
+        if (will_over > 0) {
+            const float is_within = a_box.min.x - b_box.min.x;
+            if (is_within > 0) {
+                weight = is_within / (is_within + will_over);
+            } else {
+                weight = 0;
+            }
+            // Move onto next platform
+            if (a->group.object.parent->group.platform.left) {
+                a->group.object.parent = a->group.object.parent->group.platform.left;
+                const pf_body *c = a->group.object.parent;
+                if (c->shape.tag == PF_SHAPE_TRI) {
+                    next = mulv2nf(pf_move_left_on_slope_transform(&c->shape.tri), force);
+                }
+            } else {
+               a->group.object.check_parent = true;
+            }
+        }
+        a->in.impulse = addv2f(mulv2nf(flat, weight), mulv2nf(next, 1.0f - weight));
+    } else {
+        assert(a->in.impulse.x > 0);
+
+        const v2f flat = _v2f(force, 0);
+        v2f next = _v2f(force, 0);
+
+        const float will_over = (a_box.max.x + flat.x * dt) - b_box.max.x;
+        if (will_over > 0) {
+            const float is_within = b_box.max.x - a_box.max.x;
+            if (is_within > 0) {
+                weight = is_within / (is_within + will_over);
+            } else {
+                weight = 0;
+            }
+            // Move onto next flat
+            if (a->group.object.parent->group.platform.right) {
+                a->group.object.parent = a->group.object.parent->group.platform.right;
+                const pf_body *c = a->group.object.parent;
+                if (c->shape.tag == PF_SHAPE_TRI) {
+                    next = mulv2nf(pf_move_right_on_slope_transform(&c->shape.tri), force);
+                }
+            } else {
+               a->group.object.check_parent = true;
+            }
+        }
+        a->in.impulse = addv2f(mulv2nf(flat, weight), mulv2nf(next, 1.0f - weight));
+         
+    }
+}
+
+void transform_move_on_platform(pf_body *ch, float dt) {
+    if (ch->group.object.parent) {
+        switch (ch->group.object.parent->shape.tag) {
+        case PF_SHAPE_RECT:
+            transform_move_on_flat(ch, dt);
+            break;
+        case PF_SHAPE_TRI:
+            pf_transform_move_on_slope(ch, dt);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 void loop_demo(demo *d) {
     d->input.quit = false;
     do {
@@ -347,20 +458,25 @@ void loop_demo(demo *d) {
         read_input(&d->input);
         //
         pf_body *ch = &d->world.bodies[2];
+        ch->group.object.check_parent = false;
         const float force = 25;
+        v2f add = _v2f(0,0);
         if (d->input.left) {
-            ch->in.impulse = _v2f(-force, 0);
+            add = addv2f(add, _v2f(-force, 0));
         }
         if (d->input.right) {
-            ch->in.impulse = _v2f(force, 0);
+            add = addv2f(add, _v2f(force, 0));
         }
         if (d->input.up) {
-            ch->in.impulse = _v2f(0, -force);
+            add = addv2f(add, _v2f(0, -force));
+            ch->group.object.check_parent = true;
         }
         if (d->input.down && !ch->group.object.parent) {
-            ch->in.impulse = _v2f(0, force);
+            add = addv2f(add, _v2f(0, force));
+            ch->group.object.check_parent = true;
         }
-        pf_transform_move_on_slope(ch, d->world.dt);
+        ch->in.impulse = addv2f(ch->in.impulse, add);
+        transform_move_on_platform(ch, d->world.dt);
         if (d->input.change_axis) {
             d->world.platform_dir = !d->world.platform_dir;
         }
@@ -375,7 +491,7 @@ void loop_demo(demo *d) {
         }
         //
         step_world(&d->world);
-        /*
+
         printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: %.2f\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
             ch->in.impulse.x, ch->in.impulse.y,
@@ -383,7 +499,7 @@ void loop_demo(demo *d) {
             ch->gravity.vel,
             (void*)ch->group.object.parent
         );
-        */
+
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
         //printf("FPS: %f\n", 1000.0f / (end_tick - start_tick));
@@ -456,6 +572,7 @@ bool try_child_connect_parent(const pf_manifold *m, pf_body *a, pf_body *b) {
 }
 
 void object_platform_relations(world *w) {
+
     for (int i = 0; i < w->body_num; i++) {
         pf_body *a = &w->bodies[i];
         pf_manifold m;
@@ -464,6 +581,7 @@ void object_platform_relations(world *w) {
 
         // Decide to detach from parent
         if (a->group.object.parent) {
+            //if (a->group.object.check_parent && !pf_solve_collision(a, a->group.object.parent, &m)) {
             if (!pf_solve_collision(a, a->group.object.parent, &m)) {
                 a->group.object.parent = NULL;
             }
@@ -474,27 +592,23 @@ void object_platform_relations(world *w) {
         }
  
         // Find parent to to attach
-        for (int j = i + 1; j < w->body_num; j++) {
-
+        for (int j = 0; j < w->body_num; j++) {
 
             pf_body *b = &w->bodies[j];
-            if ((a->mass == 0 && b->mass == 0)) {
+            if (i == j || (a->mass == 0 && b->mass == 0)) {
                 continue;
             }
             if (pf_solve_collision(a, b, &m)) {
 
-                const int MOVING_PLATFORM = 3;
-                if ((i == MOVING_PLATFORM && m.normal.y >= 0) ||
-                    (j == MOVING_PLATFORM && m.normal.y <= 0)) {
-                    continue;
-                }
+                //const int MOVING_PLATFORM = 3;
+                //if ((i == MOVING_PLATFORM && m.normal.y >= 0) ||
+                //    (j == MOVING_PLATFORM && m.normal.y <= 0)) {
+                //    continue;
+                //}
 
                 v2f penetration = mulv2nf(m.normal, m.penetration);
                 // 0.00011 = magic number to stop jitter
                 penetration = subv2f(penetration, mulv2nf(m.normal, 0.00011));
-                if (try_child_connect_parent(&m, a, b)) {
-                    b->pos = addv2f(b->pos, penetration);
-                }
                 if (try_child_connect_parent(&m, b, a)) {
                     a->pos = subv2f(a->pos, penetration);
                 }
@@ -568,7 +682,7 @@ void generate_collisions(world *w) {
                 km->a_key = i;
                 km->b_key = j;
 
-                IGNORE_MP
+                //IGNORE_MP
                 
                 w->manifold_num++;
                 if (w->manifold_num == MAX_MANIFOLDS) {
@@ -595,7 +709,7 @@ void solve_object_collisions(world *w) {
             pf_body *a = &w->bodies[km->a_key];
             pf_body *b = &w->bodies[km->b_key];
 
-            IGNORE_MP
+            //IGNORE_MP
  
             // TODO: into library
             if (!((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
@@ -625,15 +739,16 @@ void solve_platform_collisions(world *w) {
             pf_body *a = &w->bodies[km->a_key];
             pf_body *b = &w->bodies[km->b_key];
     
-            IGNORE_MP
+            //IGNORE_MP
 
             // TODO: into library
             if ((a->mode == PF_MODE_STATIC || b->mode == PF_MODE_STATIC) &&
                 (a->group.object.parent != b && b->group.object.parent != a)) {
+                // TODO: record adjustments
                 if (b->mode == PF_MODE_STATIC)
-                    a->pos = subv2f(a->pos, mulv2nf(m->normal, m->penetration / w->iterations));
+                    a->ex.impulse = subv2f(a->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
                 if (a->mode == PF_MODE_STATIC)
-                    b->pos = addv2f(b->pos, mulv2nf(m->normal, m->penetration / w->iterations));
+                    b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(m->normal, m->penetration / w->iterations));
             }
         }
     }
@@ -663,7 +778,7 @@ void correct_positions(world *w) {
         const pf_manifold *m = &km->manifold;
 
 
-        IGNORE_MP
+        //IGNORE_MP
 
         pf_body *a = &w->bodies[km->a_key];
         pf_body *b = &w->bodies[km->b_key];
@@ -691,7 +806,11 @@ void render_demo(demo *d) {
     angle += d->world.dt;
     const float SCREEN_W2 = 160;
     const float SCREEN_H2 = 120;
-    const float scale = clampf(0.3, 9, SCREEN_H2 / lenv2f(subv2f(p1_pos, p2_pos))); 
+    const float scale_weight = 0.95;
+    static float scale_lerp = 1;
+    const float scale_now = clampf(0.3, 9, SCREEN_H2 / lenv2f(subv2f(p1_pos, p2_pos))); 
+    const float scale = scale_lerp * scale_weight + scale_now * (1 - scale_weight);
+    scale_lerp = scale;
     // v2f target = _v2f(32, 24); // center
     static v2f target = {.x = 32, .y = 24};
     v2f final_target = mulv2nf(addv2f(addv2f(p1_pos, p2_pos), _v2f(32, 24)), 1.0 / 3.0);

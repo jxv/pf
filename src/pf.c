@@ -1275,6 +1275,18 @@ pf_tri _pf_tri(v2f radii, bool line, pf_corner hypotenuse) {
     };
 }
 
+pf_group _pf_platform() {
+    return (pf_group) {
+        .tag = PF_GROUP_PLATFORM,
+        .platform = (pf_platform) {
+            .allow = 0,
+            .convey = _v2f(0,0),
+            .left = NULL,
+            .right = NULL,
+        },
+    };
+}
+
 pf_body _pf_body() {
     return (pf_body) {
         .mode = PF_MODE_DYNAMIC,
@@ -1284,6 +1296,7 @@ pf_body _pf_body() {
             },
         .pos = _v2f(0,0),
         .group.object.parent = NULL,
+        .group.object.check_parent = false,
         .dpos = _v2f(0,0),
         .in = { 
             .impulse = fillv2f(0),
@@ -1388,7 +1401,7 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
 
     if (a->in.impulse.x < 0) {
         const v2f slope = mulv2nf(pf_move_left_on_slope_transform(t), force);
-        const v2f pure = _v2f(-force, 0);
+        v2f pure = _v2f(-force, 0);
 
         // TODO: refactor
         switch (t->hypotenuse) {
@@ -1400,6 +1413,16 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                     weight = will_within / (will_within + is_over);
                 } else {
                     weight = 0;
+                }
+                // Move onto next platform
+                if (a->group.object.parent->group.platform.left) {
+                    a->group.object.parent = a->group.object.parent->group.platform.left;
+                    const pf_body *c = a->group.object.parent;
+                    if (c->shape.tag == PF_SHAPE_TRI) {
+                        pure = mulv2nf(pf_move_left_on_slope_transform(&c->shape.tri), force);
+                    }
+                } else {
+                   a->group.object.check_parent = true;
                 }
             }
             break;
@@ -1413,6 +1436,16 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                 } else {
                     weight = 0;
                 }
+                // Move onto next platform
+                if (a->group.object.parent->group.platform.left) {
+                    a->group.object.parent = a->group.object.parent->group.platform.left;
+                    const pf_body *c = a->group.object.parent;
+                    if (c->shape.tag == PF_SHAPE_TRI) {
+                        pure = mulv2nf(pf_move_left_on_slope_transform(&c->shape.tri), force);
+                    }
+                } else {
+                   a->group.object.check_parent = true;
+                }
             }
             break;
         }
@@ -1422,11 +1455,11 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
             assert(false);
         }
 
-        a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1 - weight));
+        a->in.impulse = addv2f(mulv2nf(slope, weight), mulv2nf(pure, 1.0f - weight));
     } else {
         assert(a->in.impulse.x > 0);
         const v2f slope = mulv2nf(pf_move_right_on_slope_transform(t), force);
-        const v2f pure = _v2f(force, 0);
+        v2f pure = _v2f(force, 0);
 
         // TODO: refactor
         switch (t->hypotenuse) {
@@ -1439,6 +1472,16 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                 } else {
                     weight = 0;
                 }
+                // Move onto next slope
+                if (a->group.object.parent->group.platform.right) {
+                    a->group.object.parent = a->group.object.parent->group.platform.right;
+                    const pf_body *c = a->group.object.parent;
+                    if (c->shape.tag == PF_SHAPE_TRI) {
+                        pure = mulv2nf(pf_move_right_on_slope_transform(&c->shape.tri), force);
+                    }
+                } else {
+                   a->group.object.check_parent = true;
+                }
             }
             break;
         }
@@ -1450,6 +1493,16 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                     weight = will_within / (will_within + is_over);
                 } else {
                     weight = 0;
+                }
+                // Move onto next slope
+                if (a->group.object.parent->group.platform.right) {
+                    a->group.object.parent = a->group.object.parent->group.platform.right;
+                    const pf_body *c = a->group.object.parent;
+                    if (c->shape.tag == PF_SHAPE_TRI) {
+                        pure = mulv2nf(pf_move_right_on_slope_transform(&c->shape.tri), force);
+                    }
+                } else {
+                   a->group.object.check_parent = true;
                 }
             }
             break;

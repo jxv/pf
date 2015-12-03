@@ -55,10 +55,10 @@ typedef enum {
 } pf_group_tag;
 
 typedef enum {
-    PF_DIR_U,
-    PF_DIR_D,
-    PF_DIR_L,
-    PF_DIR_R,
+    PF_DIR_U = 1,
+    PF_DIR_D = 2,
+    PF_DIR_L = 4,
+    PF_DIR_R = 8,
 } pf_dir;
 
 typedef struct {
@@ -76,15 +76,20 @@ typedef struct {
 
 struct pf_body;
 
+/*
 typedef enum {
     PF_PLATFORM_NO_WAY,     // Solid platform
     PF_PLATFORM_ONE_WAY,    // Jump-up-onto only platform
     PF_PLATFORM_TWO_WAY,    // Jump-up and jump-down platform
 } pf_platform_tag;
+*/
 
 typedef struct {
-    pf_platform_tag tag;
+    //pf_platform_tag tag;
+    pf_dir allow;
     v2f convey;
+    struct pf_body *left;
+    struct pf_body *right;
 } pf_platform;
 
 typedef enum {
@@ -95,6 +100,7 @@ typedef enum {
 typedef struct {
     pf_object_tag tag;
     struct pf_body const *parent;
+    bool check_parent;
 } pf_object;
 
 typedef struct {
@@ -155,6 +161,7 @@ void pf_pillow_esque(pf_body *a);
 void pf_static_esque(pf_body *a);
 
 pf_tri _pf_tri(v2f radii, bool line, pf_corner hypotenuse); 
+pf_group _pf_platform();
 pf_body _pf_body();
 pf_shape pf_circle(float radius);
 pf_shape pf_box(float side);
@@ -165,5 +172,8 @@ bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pene
 float pf_line_point_dist(float p_m, float p_b, float q_x, float q_y);
 pf_aabb pf_body_to_aabb(const pf_body *a);
 void pf_transform_move_on_slope(pf_body *a, float dt);
+
+v2f pf_move_left_on_slope_transform(const pf_tri *t);
+v2f pf_move_right_on_slope_transform(const pf_tri *t);
 
 #endif
