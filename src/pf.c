@@ -1,3 +1,5 @@
 #include "pf.h"
 
-void no_error() {}
+bool pf_test_aabb_vs_aabb(const pf_aabb *a, const pf_aabb *b) {
+    return false;
+}
