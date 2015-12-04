@@ -11,7 +11,7 @@ void test_aabb_vs_aabb_success(void **state) {
 
     // Same aabb
     {
-        pf_aabb a = {
+        const pf_aabb a = {
             .min = _v2f(-1.0, -1.0),
             .max = _v2f( 1.0,  1.0),
         };
