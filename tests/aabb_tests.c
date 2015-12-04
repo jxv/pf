@@ -1,9 +1,4 @@
-#include <stdarg.h>
-#include <stddef.h>
-#include <setjmp.h>
-#include <cmocka.h>
-
-#include "pf.h"
+#include "tests.h"
 
 void eq_pos_test_aabb_vs_aabb_test(void **state) {
     const pf_aabb a = {

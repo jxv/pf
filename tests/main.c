@@ -1,4 +1,4 @@
-int run_aabb_tests();
+#include "tests.h"
 
 int main() {
     return run_aabb_tests();
