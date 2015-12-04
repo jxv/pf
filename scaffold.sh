@@ -12,9 +12,12 @@ update_sha()
 build () {
     cd $pwd
     make
-    cd tests
-    make run
-    cd $pwd
+    if [ $? -eq 0 ]
+    then
+        cd tests
+        make run
+        cd $pwd
+    fi
     echo "[Scaffold: Standby]"
 }
 
