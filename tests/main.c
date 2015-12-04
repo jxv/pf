@@ -96,7 +96,7 @@ void outside_down_pos_test_aabb_vs_aabb_test(void **state) {
         .max = _v2f( 1.0, 4.0),
     };
 
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), false);
 }
 
 int main(void) {
