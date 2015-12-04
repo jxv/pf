@@ -184,8 +184,8 @@ void outside_right_pos_test_aabb_vs_aabb_test(void **state) {
 }
 
 
-int main(void) {
-    const struct CMUnitTest aabb_tests[] = {
+int run_aabb_tests() {
+    const struct CMUnitTest tests[] = {
         cmocka_unit_test(eq_pos_test_aabb_vs_aabb_test),
 
         cmocka_unit_test(inside_up_pos_test_aabb_vs_aabb_test),
@@ -204,5 +204,9 @@ int main(void) {
         cmocka_unit_test(border_right_pos_test_aabb_vs_aabb_test),
         cmocka_unit_test(outside_right_pos_test_aabb_vs_aabb_test),
     };
-    return cmocka_run_group_tests(aabb_tests, NULL, NULL);
+    return cmocka_run_group_tests(tests, NULL, NULL);
+}
+
+int main() {
+    return run_aabb_tests();
 }
