@@ -6,3 +6,4 @@
 #include "pf.h"
 
 int run_aabb_tests();
+int run_circle_tests();
