@@ -15,5 +15,5 @@ bool pf_test_circle_vs_circle(const v2f *a_pos, const pf_circle *a, const v2f *b
     const v2f n = subv2f(b_center, a_center);
     float dist_sq = sqlenv2f(n);
     float radius = a->radius + b->radius;
-    return dist_sq < radius * radius;
+    return dist_sq <= radius * radius;
 }
