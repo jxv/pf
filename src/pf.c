@@ -12,6 +12,7 @@ bool pf_test_aabb_vs_aabb(const pf_aabb *a, const pf_aabb *b) {
 bool pf_test_point_vs_aabb(const v2f *a, const pf_aabb *b) {
     return
         a->x <= b->max.x &&
+        a->y <= b->max.y &&
         a->y >= b->min.y;
 }
 
