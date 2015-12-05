@@ -188,6 +188,17 @@ void inside_point_vs_aabb_test(void **state) {
     assert_int_equal(pf_test_point_vs_aabb(&a, &b), true);
 }
 
+void outside_up_point_vs_aabb_test(void **state) {
+     const v2f a = _v2f(0, -2);
+    
+    const pf_aabb b = {
+        .min = _v2f(-1.0, -1.0),
+        .max = _v2f( 1.0,  1.0),
+    };    
+
+    assert_int_equal(pf_test_point_vs_aabb(&a, &b), false);
+}
+
 int run_aabb_tests() {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(eq_pos_test_aabb_vs_aabb_test),
@@ -209,6 +220,7 @@ int run_aabb_tests() {
         cmocka_unit_test(outside_right_pos_test_aabb_vs_aabb_test),
         
         cmocka_unit_test(inside_point_vs_aabb_test),
+        cmocka_unit_test(outside_up_point_vs_aabb_test),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
