@@ -9,6 +9,10 @@ bool pf_test_aabb_vs_aabb(const pf_aabb *a, const pf_aabb *b) {
         b->min.y <= a->max.y;
 }
 
+bool pf_test_point_vs_aabb(const v2f *a, const pf_aabb *b) {
+    return false;
+}
+
 bool pf_test_circle_vs_circle(const v2f *a_pos, const pf_circle *a, const v2f *b_pos, const pf_circle *b) {
     const v2f a_center = addv2f(*a_pos, a->center);
     const v2f b_center = addv2f(*b_pos, b->center);
