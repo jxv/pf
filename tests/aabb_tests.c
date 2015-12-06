@@ -31,7 +31,7 @@ void up_test_aabb_vs_aabb_test(void **state) {
     };
 
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), false);
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
@@ -57,7 +57,7 @@ void down_test_aabb_vs_aabb_test(void **state) {
     };
 
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), false);
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
@@ -83,7 +83,7 @@ void left_test_aabb_vs_aabb_test(void **state) {
     };
 
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), false);
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
@@ -109,7 +109,7 @@ void right_test_aabb_vs_aabb_test(void **state) {
     };
 
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), false);
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
