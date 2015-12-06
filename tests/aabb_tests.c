@@ -1,6 +1,6 @@
 #include "tests.h"
 
-void eq_pos_test_aabb_vs_aabb_test(void **state) {
+void eq_test_aabb_vs_aabb_test(void **state) {
     const pf_aabb a = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
@@ -9,242 +9,166 @@ void eq_pos_test_aabb_vs_aabb_test(void **state) {
     assert_int_equal(pf_test_aabb_vs_aabb(&a, &a), true);
 }
 
-void inside_up_pos_test_aabb_vs_aabb_test(void **state) {
+void up_test_aabb_vs_aabb_test(void **state) {
     const pf_aabb a = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };
     
-    const pf_aabb b = {
-        .min = _v2f(-1.0, -2.0),
-        .max = _v2f( 1.0,  0.0),
+    const pf_aabb inside = {
+        .min = _v2f(-1.0, -3.0 + 0.1),
+        .max = _v2f( 1.0, -1.0 + 0.1),
     };
 
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
+    const pf_aabb border = {
+        .min = _v2f(-1.0, -3.0 + 0.0),
+        .max = _v2f( 1.0, -1.0 + 0.0),
+    };
+
+    const pf_aabb outside = {
+        .min = _v2f(-1.0, -3.0 - 0.1),
+        .max = _v2f( 1.0, -1.0 - 0.1),
+    };
+
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
-void border_up_pos_test_aabb_vs_aabb_test(void **state) {
+void down_test_aabb_vs_aabb_test(void **state) {
     const pf_aabb a = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };
     
-    const pf_aabb b = {
-        .min = _v2f(-1.0, -3.0),
-        .max = _v2f( 1.0, -1.0),
+    const pf_aabb inside = {
+        .min = _v2f(-1.0, 1.0 - 0.1),
+        .max = _v2f( 1.0, 3.0 - 0.1),
     };
 
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
+    const pf_aabb border = {
+        .min = _v2f(-1.0, 1.0 + 0.0),
+        .max = _v2f( 1.0, 3.0 + 0.0),
+    };
+
+    const pf_aabb outside = {
+        .min = _v2f(-1.0, 1.0 + 0.1),
+        .max = _v2f( 1.0, 3.0 + 0.1),
+    };
+
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
-void outside_up_pos_test_aabb_vs_aabb_test(void **state) {
+void left_test_aabb_vs_aabb_test(void **state) {
     const pf_aabb a = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };
     
-    const pf_aabb b = {
-        .min = _v2f(-1.0, -4.0),
-        .max = _v2f( 1.0, -2.0),
+    const pf_aabb inside = {
+        .min = _v2f(-3.0 + 0.1, -1.0),
+        .max = _v2f(-1.0 + 0.1,  1.0),
+    };
+    
+    const pf_aabb border = {
+        .min = _v2f(-3.0 + 0.0, -1.0),
+        .max = _v2f(-1.0 + 0.0,  1.0),
+    };
+    
+    const pf_aabb outside = {
+        .min = _v2f(-3.0 - 0.1, -1.0),
+        .max = _v2f(-1.0 - 0.1,  1.0),
     };
 
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), false);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
-void inside_down_pos_test_aabb_vs_aabb_test(void **state) {
+void right_test_aabb_vs_aabb_test(void **state) {
     const pf_aabb a = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };
     
-    const pf_aabb b = {
-        .min = _v2f(-1.0, 0.0),
-        .max = _v2f( 1.0, 2.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
-}
-
-void border_down_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
+    const pf_aabb inside = {
+        .min = _v2f(1.0 - 0.1, -1.0),
+        .max = _v2f(3.0 - 0.1,  1.0),
     };
     
-    const pf_aabb b = {
-        .min = _v2f(-1.0, 1.0),
-        .max = _v2f( 1.0, 3.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
-}
-
-void outside_down_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
+    const pf_aabb border = {
+        .min = _v2f(1.0 - 0.0, -1.0),
+        .max = _v2f(3.0 - 0.0,  1.0),
     };
     
-    const pf_aabb b = {
-        .min = _v2f(-1.0, 2.0),
-        .max = _v2f( 1.0, 4.0),
+    const pf_aabb outside = {
+        .min = _v2f(1.0 + 0.1, -1.0),
+        .max = _v2f(3.0 + 0.1,  1.0),
     };
 
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), false);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &inside), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &border), true);
+    assert_int_equal(pf_test_aabb_vs_aabb(&a, &outside), false);
 }
 
-void inside_left_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
-    };
-    
-    const pf_aabb b = {
-        .min = _v2f(-2.0, -1.0),
-        .max = _v2f( 0.0,  1.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
-}
-
-void border_left_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
-    };
-    
-    const pf_aabb b = {
-        .min = _v2f(-3.0, -1.0),
-        .max = _v2f(-1.0,  1.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
-}
-
-void outside_left_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
-    };
-    
-    const pf_aabb b = {
-        .min = _v2f(-4.0, -1.0),
-        .max = _v2f(-2.0,  1.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), false);
-}
-
-void inside_right_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
-    };
-    
-    const pf_aabb b = {
-        .min = _v2f( 0.0, -1.0),
-        .max = _v2f( 2.0,  1.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
-}
-
-void border_right_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
-    };
-    
-    const pf_aabb b = {
-        .min = _v2f( 1.0, -1.0),
-        .max = _v2f( 3.0,  1.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), true);
-}
-
-void outside_right_pos_test_aabb_vs_aabb_test(void **state) {
-    const pf_aabb a = {
-        .min = _v2f(-1.0, -1.0),
-        .max = _v2f( 1.0,  1.0),
-    };
-    
-    const pf_aabb b = {
-        .min = _v2f( 2.0, -1.0),
-        .max = _v2f( 4.0,  1.0),
-    };
-
-    assert_int_equal(pf_test_aabb_vs_aabb(&a, &b), false);
-}
-
-void inside_point_vs_aabb_test(void **state) {
-     const v2f a = _v2f(0, 0);
+void center_point_vs_aabb_test(void **state) {
+     const v2f center = _v2f(0, 0);
     
     const pf_aabb b = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };    
 
-    assert_int_equal(pf_test_point_vs_aabb(&a, &b), true);
+    assert_int_equal(pf_test_point_vs_aabb(&center, &b), true);
 }
 
-void outside_up_point_vs_aabb_test(void **state) {
-     const v2f a = _v2f(0, -2);
+void up_point_vs_aabb_test(void **state) {
+     const v2f outside = _v2f(0, -1.0 - 0.1);
     
     const pf_aabb b = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };    
 
-    assert_int_equal(pf_test_point_vs_aabb(&a, &b), false);
+    assert_int_equal(pf_test_point_vs_aabb(&outside, &b), false);
 }
 
-void outside_down_point_vs_aabb_test(void **state) {
-     const v2f a = _v2f(0, 2);
+void down_point_vs_aabb_test(void **state) {
+     const v2f outside = _v2f(0, 1.0 + 0.1);
     
     const pf_aabb b = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };    
 
-    assert_int_equal(pf_test_point_vs_aabb(&a, &b), false);
+    assert_int_equal(pf_test_point_vs_aabb(&outside, &b), false);
 }
 
-void outside_left_point_vs_aabb_test(void **state) {
-     const v2f a = _v2f(-2, 0);
+void left_point_vs_aabb_test(void **state) {
+     const v2f outside = _v2f(-1.0 - 0.1, 0);
     
     const pf_aabb b = {
         .min = _v2f(-1.0, -1.0),
         .max = _v2f( 1.0,  1.0),
     };    
 
-    assert_int_equal(pf_test_point_vs_aabb(&a, &b), false);
+    assert_int_equal(pf_test_point_vs_aabb(&outside, &b), false);
 }
 
 int run_aabb_tests() {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(eq_pos_test_aabb_vs_aabb_test),
+        cmocka_unit_test(eq_test_aabb_vs_aabb_test),
+        cmocka_unit_test(up_test_aabb_vs_aabb_test),
+        cmocka_unit_test(down_test_aabb_vs_aabb_test),
+        cmocka_unit_test(left_test_aabb_vs_aabb_test),
+        cmocka_unit_test(right_test_aabb_vs_aabb_test),
 
-        cmocka_unit_test(inside_up_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(border_up_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(outside_up_pos_test_aabb_vs_aabb_test),
-
-        cmocka_unit_test(inside_down_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(border_down_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(outside_down_pos_test_aabb_vs_aabb_test),
-
-        cmocka_unit_test(inside_left_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(border_left_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(outside_left_pos_test_aabb_vs_aabb_test),
-        
-        cmocka_unit_test(inside_right_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(border_right_pos_test_aabb_vs_aabb_test),
-        cmocka_unit_test(outside_right_pos_test_aabb_vs_aabb_test),
-        
-        cmocka_unit_test(inside_point_vs_aabb_test),
-        cmocka_unit_test(outside_up_point_vs_aabb_test),
-        cmocka_unit_test(outside_down_point_vs_aabb_test),
-        cmocka_unit_test(outside_left_point_vs_aabb_test),
+        cmocka_unit_test(center_point_vs_aabb_test),
+        cmocka_unit_test(up_point_vs_aabb_test),
+        cmocka_unit_test(down_point_vs_aabb_test),
+        cmocka_unit_test(left_point_vs_aabb_test),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
