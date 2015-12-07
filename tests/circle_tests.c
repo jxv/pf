@@ -38,7 +38,7 @@ void up_test_circle_vs_circle_test(void **state) {
     };
 
     assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &inside_pos, &inside), true);
-    assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &border_pos, &border), true);
+    assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &border_pos, &border), false);
     assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &outside_pos, &outside), false);
 }
 
@@ -50,7 +50,7 @@ void dr_test_circle_vs_circle_test(void **state) {
         .radius = 1.0,
     };
 
-    const v2f border_pos = _v2f(sqrtf(2), sqrtf(2));
+    const v2f border_pos = _v2f(sqrtf(2.000001), sqrtf(2.000001));
     const pf_circle border = {
         .center = _v2f(0,0),
         .radius = 1.0,
@@ -62,7 +62,7 @@ void dr_test_circle_vs_circle_test(void **state) {
         .radius = 1.0,
     };
 
-    assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &border_pos, &border), true);
+    assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &border_pos, &border), false);
     assert_int_equal(pf_test_circle_vs_circle(&a_pos, &a, &outside_pos, &outside), false);
 }
 
