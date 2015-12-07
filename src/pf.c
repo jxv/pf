@@ -14,7 +14,7 @@ bool pf_test_point_vs_aabb(const v2f *a, const pf_aabb *b) {
         a->x <= b->max.x &&
         a->x >= b->min.x &&
         a->y <= b->max.y &&
-        a->y >= b->min.y;
+        a->y > b->min.y;
 }
 
 bool pf_test_circle_vs_circle(const v2f *a_pos, const pf_circle *a, const v2f *b_pos, const pf_circle *b) {
