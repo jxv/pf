@@ -155,6 +155,8 @@ void down_point_vs_aabb_test(void **state) {
 }
 
 void left_point_vs_aabb_test(void **state) {
+     const v2f inside = _v2f(-1.0 + 0.1, 0);
+     const v2f border = _v2f(-1.0 + 0.0, 0);
      const v2f outside = _v2f(-1.0 - 0.1, 0);
     
     const pf_aabb b = {
@@ -162,6 +164,8 @@ void left_point_vs_aabb_test(void **state) {
         .max = _v2f( 1.0,  1.0),
     };    
 
+    assert_int_equal(pf_test_point_vs_aabb(&inside, &b), true);
+    assert_int_equal(pf_test_point_vs_aabb(&border, &b), false);
     assert_int_equal(pf_test_point_vs_aabb(&outside, &b), false);
 }
 
