@@ -8,3 +8,4 @@
 
 int run_aabb_tests();
 int run_circle_tests();
+int run_polygon_tests();

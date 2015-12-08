@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include "pf.h"
 
 bool pf_test_aabb_vs_aabb(const pf_aabb *a, const pf_aabb *b) {
@@ -24,4 +25,13 @@ bool pf_test_circle_vs_circle(const v2f *a_pos, const pf_circle *a, const v2f *b
     float dist_sq = sqlenv2f(n);
     float radius = a->radius + b->radius;
     return dist_sq < radius * radius;
+}
+
+void pf_compute_face(pf_face *f, const v2f *a, const v2f *b) {
+    v2f c = subv2f(*b, *a);
+    f->angle = atan2f(c.y, c.x);
+    f->sin = sinf(f->angle);
+    f->cos = cosf(f->angle);
+    f->len = lenv2f(c);
+    f->normal = _v2f(f->sin, f->cos);
 }

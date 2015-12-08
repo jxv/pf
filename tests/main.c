@@ -3,6 +3,7 @@
 int (*runners[])() = {
     run_aabb_tests,
     run_circle_tests,
+    run_polygon_tests,
 };
 
 int main() {
