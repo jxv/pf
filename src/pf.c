@@ -33,5 +33,5 @@ void pf_compute_face(pf_face *f, const v2f *a, const v2f *b) {
     f->sin = sinf(f->angle);
     f->cos = cosf(f->angle);
     f->len = lenv2f(c);
-    f->normal = _v2f(f->sin, f->cos);
+    f->normal = _v2f(-f->sin, f->cos);
 }
