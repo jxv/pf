@@ -30,6 +30,9 @@ bool pf_test_circle_vs_circle(const v2f *a_pos, const pf_circle *a, const v2f *b
 void pf_compute_face(pf_face *f, const v2f *a, const v2f *b) {
     v2f c = subv2f(*b, *a);
     f->angle = atan2f(c.y, c.x);
+    while (f->angle < 0) {
+        f->angle += M_PI * 2;
+    }
     f->sin = sinf(f->angle);
     f->cos = cosf(f->angle);
     f->len = lenv2f(c);
