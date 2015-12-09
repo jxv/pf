@@ -75,6 +75,35 @@ void test_pf_polypair(void **state) {
     assert_true(pair.face.normal.y == 0);
 }
 
+void test_pf_polygon(void **state) {
+#define COUNT 4
+    pf_polypair pairs[COUNT] = {
+        _pf_polypair(_v2f(-1, -1)),
+        _pf_polypair(_v2f(-1,  1)),
+        _pf_polypair(_v2f( 1,  1)),
+        _pf_polypair(_v2f( 1, -1)),
+    };
+    pf_polygon polygon = _pf_polygon(pairs, COUNT);
+
+    assert_int_equal(polygon.count, COUNT);
+#undef COUNT
+    
+    assert_true(eqf(polygon.pairs[0].face.len, 2));
+    assert_true(eqf(polygon.pairs[1].face.len, 2));
+    assert_true(eqf(polygon.pairs[2].face.len, 2));
+    assert_true(eqf(polygon.pairs[3].face.len, 2));
+    
+    assert_true(eqf(polygon.pairs[0].face.angle, M_PI_2));
+    assert_true(eqf(polygon.pairs[1].face.angle, 0));
+    assert_true(eqf(polygon.pairs[2].face.angle, M_PI_2 * 3));
+    assert_true(eqf(polygon.pairs[3].face.angle, M_PI));
+
+    assert_true(eqv2f(polygon.pairs[0].face.normal, _v2f(-1,  0)));
+    assert_true(eqv2f(polygon.pairs[1].face.normal, _v2f( 0,  1)));
+    assert_true(eqv2f(polygon.pairs[2].face.normal, _v2f( 1,  0)));
+    assert_true(eqv2f(polygon.pairs[3].face.normal, _v2f( 0, -1)));
+}
+
 void test_pf_platform_bind_ab(void **state) {
     pf_platform_bind ab = _pf_platform_bind_ab(1, 2, PF_FACE_POINT_B, 3, 4, PF_FACE_POINT_A);
     assert_true(ab.a.is);
@@ -119,6 +148,7 @@ int run_polygon_tests() {
         cmocka_unit_test(test_dr_compute_face),
         cmocka_unit_test(test_ul_compute_face),
         cmocka_unit_test(test_pf_polypair),
+        cmocka_unit_test(test_pf_polygon),
         cmocka_unit_test(test_pf_platform_bind_ab),
         cmocka_unit_test(test_pf_platform_bind_a),
         cmocka_unit_test(test_pf_platform_bind_b),
