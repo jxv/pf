@@ -117,6 +117,7 @@ pf_platform_bind _pf_platform_bind_ab(
     int b_polygon_index, int b_face_index, pf_face_point b_point);
 
 pf_platform_bind _pf_platform_bind_a(int a_polygon_index, int a_face_index, pf_face_point a_point);
+pf_platform_bind _pf_platform_bind_b(int b_polygon_index, int b_face_index, pf_face_point b_point);
 
 
 // A data extension of pf_polygon because polygons can bind.

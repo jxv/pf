@@ -87,3 +87,20 @@ pf_platform_bind _pf_platform_bind_a(int a_polygon_index, int a_face_index, pf_f
         },
     };
 }
+
+pf_platform_bind _pf_platform_bind_b(int b_polygon_index, int b_face_index, pf_face_point b_point) {
+    return (pf_platform_bind) {
+       .a = {
+            .is = false,
+            .polygon_index = 0,
+            .face_index = 0,
+            .point = 0,
+       },
+       .b = {
+            .is = true,
+            .polygon_index = b_polygon_index,
+            .face_index = b_face_index,
+            .point = b_point,
+        },
+    };
+}
