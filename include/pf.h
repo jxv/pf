@@ -87,15 +87,21 @@ bool pf_point_vs_polygon(const v2f *a_pos, const v2f *b_pos, const pf_polygon *b
 // For the direction around a polygon/platform.
 // With typical direction of gravity, clockwise = right, counter-clockwise = left.
 typedef enum {
-    PF_CIRCULAR_DIR_CLOCKWISE,
-    PF_CIRCULAR_DIR_COUNTER_CLOCKWISE,
-} pf_circular_dir;
+    PF_CLOCKWISE,
+    PF_COUNTER_CLOCKWISE,
+} pf_clockwise;
 
 // The referred point from a face.
 typedef enum {
     PF_FACE_POINT_A,
     PF_FACE_POINT_B,
 } pf_face_point;
+
+// A platform ploygon face's index.
+typedef struct {
+    int polygon_index;
+    int face_index; 
+} pf_platform_face;
 
 // A face point's index from a platform perspective.
 typedef struct {
