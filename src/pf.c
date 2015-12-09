@@ -51,3 +51,22 @@ pf_polypair _pf_polypair(v2f point) {
         },
     };
 }
+
+pf_platform_bind _pf_platform_bind_ab(
+    int a_polygon_index, int a_face_index, pf_face_point a_point,
+    int b_polygon_index, int b_face_index, pf_face_point b_point) {
+    return (pf_platform_bind) {
+        .a = {
+            .is = true,
+            .polygon_index = a_polygon_index,
+            .face_index = a_face_index,
+            .point = a_point,
+        },
+        .b = {
+            .is = true,
+            .polygon_index = b_polygon_index,
+            .face_index = b_face_index,
+            .point = b_point,
+        },
+    };
+}
