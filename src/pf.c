@@ -70,3 +70,20 @@ pf_platform_bind _pf_platform_bind_ab(
         },
     };
 }
+
+pf_platform_bind _pf_platform_bind_a(int a_polygon_index, int a_face_index, pf_face_point a_point) {
+    return (pf_platform_bind) {
+        .a = {
+            .is = true,
+            .polygon_index = a_polygon_index,
+            .face_index = a_face_index,
+            .point = a_point,
+        },
+        .b = {
+            .is = false,
+            .polygon_index = 0,
+            .face_index = 0,
+            .point = 0,
+        },
+    };
+}

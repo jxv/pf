@@ -87,6 +87,18 @@ void test_pf_platform_bind_ab(void **state) {
     assert_int_equal(ab.b.point, PF_FACE_POINT_A);
 }
 
+void test_pf_platform_bind_a(void **state) {
+    pf_platform_bind a = _pf_platform_bind_a(1, 2, PF_FACE_POINT_B);
+    assert_true(a.a.is);
+    assert_int_equal(a.a.polygon_index, 1);
+    assert_int_equal(a.a.face_index, 2);
+    assert_int_equal(a.a.point, PF_FACE_POINT_B);
+    assert_false(a.b.is);
+    assert_int_equal(a.b.polygon_index, 0);
+    assert_int_equal(a.b.face_index, 0);
+    assert_int_equal(a.b.point, 0);
+}
+
 int run_polygon_tests() {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_left_compute_face),
@@ -96,6 +108,7 @@ int run_polygon_tests() {
         cmocka_unit_test(test_ul_compute_face),
         cmocka_unit_test(test_pf_polypair),
         cmocka_unit_test(test_pf_platform_bind_ab),
+        cmocka_unit_test(test_pf_platform_bind_a),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
