@@ -38,3 +38,16 @@ void pf_compute_face(pf_face *f, const v2f *a, const v2f *b) {
     f->len = lenv2f(c);
     f->normal = _v2f(-f->sin, f->cos);
 }
+
+pf_polypair _pf_polypair(v2f point) {
+    return (pf_polypair) {
+        .point = point,
+        .face = {
+            .angle = 0,
+            .sin = 0,
+            .cos = 0,
+            .len = 0,
+            .normal = _v2f(0,0),
+        },
+    };
+}

@@ -63,6 +63,18 @@ void test_ul_compute_face(void **state) {
     assert_true(eqv2f(face.normal, _v2f(sqrtf(2) / 2, -sqrtf(2) / 2)));
 }
 
+void test_pf_polypair(void **state) {
+    const v2f point = _v2f(12,34);
+    const pf_polypair pair = _pf_polypair(point);
+    assert_true(eqv2f(point, pair.point));
+    assert_true(pair.face.angle == 0);
+    assert_true(pair.face.sin == 0);
+    assert_true(pair.face.cos == 0);
+    assert_true(pair.face.len == 0);
+    assert_true(pair.face.normal.x == 0);
+    assert_true(pair.face.normal.y == 0);
+}
+
 
 int run_polygon_tests() {
     const struct CMUnitTest tests[] = {
@@ -71,6 +83,7 @@ int run_polygon_tests() {
         cmocka_unit_test(test_up_compute_face),
         cmocka_unit_test(test_dr_compute_face),
         cmocka_unit_test(test_ul_compute_face),
+        cmocka_unit_test(test_pf_polypair),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
