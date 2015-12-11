@@ -140,6 +140,38 @@ void test_pf_platform_bind_b(void **state) {
     assert_int_equal(b.b.point, PF_FACE_POINT_A);
 }
 
+void test_traverse_box(void **state) {
+#define COUNT 4
+    pf_polypair pairs[COUNT] = {
+        _pf_polypair(_v2f(-1, -1)),
+        _pf_polypair(_v2f(-1,  1)),
+        _pf_polypair(_v2f( 1,  1)),
+        _pf_polypair(_v2f( 1, -1)),
+    };
+    pf_polygon polygon = _pf_polygon(pairs, COUNT);
+
+    pf_platform_bind binds[COUNT] = {
+        _pf_platform_bind_ab(0, 1, PF_FACE_POINT_B, 0, 3, PF_FACE_POINT_A),
+        _pf_platform_bind_ab(0, 2, PF_FACE_POINT_B, 0, 0, PF_FACE_POINT_A),
+        _pf_platform_bind_ab(0, 3, PF_FACE_POINT_B, 0, 1, PF_FACE_POINT_A),
+        _pf_platform_bind_ab(0, 0, PF_FACE_POINT_B, 0, 2, PF_FACE_POINT_A),
+    };
+
+#undef COUNT
+
+    pf_platform_polygon plat_poly = { polygon, binds };
+    {
+        v2f pos = polygon.pairs[0].point;
+        (void) pos;
+        pf_platform_face plat_face = { 0, 0 };
+        v2f move = _v2f(2, 0);
+
+        const pf_polypair *pp = &plat_poly.polygon.pairs[plat_face.face_index];
+        v2f moved = pf_rotate_for_traverse(move, pp->face.sin, pp->face.cos);
+        assert_true(eqv2f(moved, _v2f(0, -2)));
+    }
+}
+
 int run_polygon_tests() {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_left_compute_face),
@@ -152,6 +184,7 @@ int run_polygon_tests() {
         cmocka_unit_test(test_pf_platform_bind_ab),
         cmocka_unit_test(test_pf_platform_bind_a),
         cmocka_unit_test(test_pf_platform_bind_b),
+        cmocka_unit_test(test_traverse_box),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

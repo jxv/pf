@@ -117,3 +117,7 @@ pf_platform_bind _pf_platform_bind_b(int b_polygon_index, int b_face_index, pf_f
         },
     };
 }
+
+v2f pf_rotate_for_traverse(v2f v, float sin, float cos) {
+    return _v2f(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
+}

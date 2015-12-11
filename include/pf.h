@@ -141,4 +141,13 @@ typedef struct {
     int count;
 } pf_platform;
 
+v2f pf_rotate_for_traverse(v2f v, float sin, float cos);
+
+typedef struct {
+    v2f pos;
+    pf_platform_face platform_face;
+} pf_platform_pos;
+
+pf_platform_pos pf_traverse_platform(const pf_platform_pos *plat_pos, float move);
+
 #endif
