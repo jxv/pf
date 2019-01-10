@@ -10,7 +10,7 @@ typedef enum {
     PF_TRI_REGION_A,
     PF_TRI_REGION_B,
     PF_TRI_REGION_C,
-} pf_tri_region;
+} PfTriRegion;
 
 typedef enum {
     PF_RECT_REGION_U,
@@ -21,15 +21,15 @@ typedef enum {
     PF_RECT_REGION_UR,
     PF_RECT_REGION_DL,
     PF_RECT_REGION_DR,
-} pf_rect_region;
+} PfRectRegion;
 
-bool pf_intersect(const pf_aabb *a, const pf_aabb *b) {
+bool pf_intersect(const PfAabb *a, const PfAabb *b) {
     return
         a->max.x >= b->min.x && a->min.x <= b->max.x &&
         a->max.y >= b->min.y && a->min.y <= b->max.y;
 }
 
-bool pf_inside(const v2f *a, const pf_aabb *b) {
+bool pf_inside(const v2f *a, const PfAabb *b) {
     return
         a->x >= b->min.x && a->x <= b->max.x &&
         a->y >= b->min.y && a->y <= b->max.y;
@@ -59,7 +59,7 @@ float pf_slope_from_points(const v2f *b, const v2f *a) {
     return (a->y - b->y) / (a->x - b->x);
 }
 
-float tri_angle(const v2f *radii, pf_corner hypotenuse) {
+float tri_angle(const v2f *radii, PfCorner hypotenuse) {
     switch (hypotenuse) {
     case PF_CORNER_UL:
     case PF_CORNER_DR:
@@ -82,28 +82,28 @@ v2f projection_vector(float radians) {
     return _v2f(cosf(radians), -sinf(radians));
 }
 
-pf_aabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
-    return (pf_aabb) {
+PfAabb pf_rect_to_aabb(const v2f *pos, const v2f *radii) {
+    return (PfAabb) {
         .min = subv2f(*pos, *radii),
         .max = addv2f(*pos, *radii)
     };
 }
 
-pf_aabb pf_circle_to_aabb(const v2f *pos, float radius) {
-    return (pf_aabb) {
+PfAabb pf_circle_to_aabb(const v2f *pos, float radius) {
+    return (PfAabb) {
         .min = subv2nf(*pos, radius),
         .max = divv2nf(*pos, radius)
     };
 }
 
-pf_aabb pf_tri_to_aabb(const v2f *pos, const pf_tri *tri) {
-    return (pf_aabb) {
+PfAabb pf_tri_to_aabb(const v2f *pos, const PfTri *tri) {
+    return (PfAabb) {
         .min = subv2f(*pos, tri->radii),
         .max = addv2f(*pos, tri->radii)
     };
 }
 
-pf_aabb pf_shape_to_aabb(const v2f *pos, const pf_shape *sh) {
+PfAabb pf_shape_to_aabb(const v2f *pos, const PfShape *sh) {
     switch (sh->tag) {
     case PF_SHAPE_RECT:
         return pf_rect_to_aabb(pos, &sh->radii);
@@ -116,7 +116,7 @@ pf_aabb pf_shape_to_aabb(const v2f *pos, const pf_shape *sh) {
     }
 }
 
-pf_aabb pf_body_to_aabb(const pf_body *a) {
+PfAabb pf_body_to_aabb(const PfBody *a) {
     return pf_shape_to_aabb(&a->pos, &a->shape);
 }
 
@@ -188,7 +188,7 @@ bool pf_point_in_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p
 
 // closest point on rect perimeter
 void pf_closest_point_rect(const v2f *pos, const v2f *radii, const v2f *p, v2f *q) {
-    const pf_aabb b = pf_rect_to_aabb(pos, radii);
+    const PfAabb b = pf_rect_to_aabb(pos, radii);
     if (pf_inside(p, &b)) {
         const v2f xclamp = _v2f(clampf(b.min.x, b.max.x, p->x), p->y);
         const v2f yclamp = _v2f(p->x, clampf(b.min.y, b.max.y, p->y));
@@ -269,7 +269,7 @@ void pf_closest_point_triangle_no_region(const v2f *a, const v2f *b, const v2f *
 
 
 // q is closest point, returns point's region
-pf_tri_region pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *q, bool *inside) {
+PfTriRegion pf_closest_point_triangle(const v2f *a, const v2f *b, const v2f *c, const v2f *p, v2f *q, bool *inside) {
     *inside = false;
     // out of a
     const v2f ab = subv2f(*b, *a);
@@ -385,13 +385,13 @@ bool pf_point_to_circle(const v2f *a_pos, const v2f *b_pos, float b_radius, v2f 
     return pf_circle_to_circle_(a_pos, 0, b_pos, b_radius, normal, penetration);
 }
 
-bool pf_test_rect(const pf_aabb *a, const pf_body *b) {
+bool pf_test_rect(const PfAabb *a, const PfBody *b) {
     assert(b->shape.tag == PF_SHAPE_RECT);
-    const pf_aabb rect = pf_body_to_aabb(b);
+    const PfAabb rect = pf_body_to_aabb(b);
     return pf_intersect(a, &rect);
 }
 
-bool pf_test_circle(const pf_aabb *a, const pf_body *b) {
+bool pf_test_circle(const PfAabb *a, const PfBody *b) {
     assert(b->shape.tag == PF_SHAPE_CIRCLE);
     const bool inside = pf_inside(&b->pos, a);
     const v2f closest = clampv2f(a->min, a->max, b->pos);
@@ -410,7 +410,7 @@ bool pf_point_in_tri_ul(float x, float y, const v2f *dr, const v2f *ofs, float s
         (y - ofs->y) >= (x - ofs->x) * slope;
 }
  
-bool pf_test_tri_ul(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
+bool pf_test_tri_ul(const PfAabb *a, const v2f *pos, const v2f *radii, float slope) {
     const v2f ofs = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
     const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
@@ -433,7 +433,7 @@ bool pf_point_in_tri_ur(float x, float y, const v2f *dl, const v2f *ofs, float s
         (y - ofs->y) >= (x - ofs->x) * slope;
 }
  
-bool pf_test_tri_ur(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
+bool pf_test_tri_ur(const PfAabb *a, const v2f *pos, const v2f *radii, float slope) {
     const v2f ofs = subv2f(*pos, *radii);
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f dl = addv2f(*pos, _v2f(-radii->x,  radii->y));
@@ -456,7 +456,7 @@ bool pf_point_in_tri_dl(float x, float y, const v2f *ur, const v2f *ofs, float s
         (y - ofs->y) <= (x - ofs->x) * slope;
 }
  
-bool pf_test_tri_dl(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
+bool pf_test_tri_dl(const PfAabb *a, const v2f *pos, const v2f *radii, float slope) {
     const v2f ofs = subv2f(*pos, *radii);
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
@@ -479,7 +479,7 @@ bool pf_point_in_tri_dr(float x, float y, const v2f *ul, const v2f *ofs, float s
         (y - ofs->y) <= (x - ofs->x) * slope;
 }
  
-bool pf_test_tri_dr(const pf_aabb *a, const v2f *pos, const v2f *radii, float slope) {
+bool pf_test_tri_dr(const PfAabb *a, const v2f *pos, const v2f *radii, float slope) {
     const v2f ofs = addv2f(*pos, _v2f(-radii->x,  radii->y));
     const v2f ul = addv2f(*pos, _v2f(-radii->x, -radii->y));
     const v2f ur = addv2f(*pos, _v2f( radii->x, -radii->y));
@@ -494,7 +494,7 @@ bool pf_test_tri_dr(const pf_aabb *a, const v2f *pos, const v2f *radii, float sl
         pf_point_in_tri_dr(a->max.x, a->max.y, &ul, &ofs, slope);
 }
 
-bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t) {
+bool pf_test_tri(const PfAabb *a, const v2f *pos, const PfTri *t) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
         return pf_test_tri_ul(a, pos, &t->radii, t->m);
@@ -509,7 +509,7 @@ bool pf_test_tri(const pf_aabb *a, const v2f *pos, const pf_tri *t) {
     }
 }
 
-bool pf_test_body(const pf_aabb *a, const pf_body *b) {
+bool pf_test_body(const PfAabb *a, const PfBody *b) {
     switch (b->shape.tag) {
     case PF_SHAPE_RECT:
         return pf_test_rect(a, b);
@@ -522,14 +522,14 @@ bool pf_test_body(const pf_aabb *a, const pf_body *b) {
     }
 }
 
-bool pf_body_to_body_swap(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
-bool pf_rect_to_rect(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
-bool pf_rect_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
-bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
-bool pf_circle_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
-bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration);
+bool pf_body_to_body_swap(const PfBody *a, const PfBody *b, v2f *normal, float *penetration);
+bool pf_rect_to_rect(const PfBody *a, const PfBody *b, v2f *normal, float *penetration);
+bool pf_rect_to_circle(const PfBody *a, const PfBody *b, v2f *normal, float *penetration);
+bool pf_rect_to_tri(const PfBody *a, const PfBody *b, v2f *normal, float *penetration);
+bool pf_circle_to_circle(const PfBody *a, const PfBody *b, v2f *normal, float *penetration);
+bool pf_circle_to_tri(const PfBody *a, const PfBody *b, v2f *normal, float *penetration);
 
-bool pf_body_to_body(const pf_body *a, const pf_body *b,
+bool pf_body_to_body(const PfBody *a, const PfBody *b,
              v2f *normal, float *penetration) {
     switch (a->shape.tag) {
     case PF_SHAPE_RECT:
@@ -569,7 +569,7 @@ bool pf_body_to_body(const pf_body *a, const pf_body *b,
     }
 }
 
-bool pf_body_to_body_swap(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+bool pf_body_to_body_swap(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
     const bool test = pf_body_to_body(b, a, normal, penetration);
     if (test) {
         *normal = negv2f(*normal);
@@ -577,7 +577,7 @@ bool pf_body_to_body_swap(const pf_body *a, const pf_body *b, v2f *normal, float
     return test;
 }
 
-bool pf_aabb_to_aabb(const pf_aabb *a, const pf_aabb *b, v2f *normal, float *penetration) {
+bool pf_aabb_to_aabb(const PfAabb *a, const PfAabb *b, v2f *normal, float *penetration) {
     const v2f a_pos = mulv2nf(addv2f(a->min, a->max), 0.5);
     const v2f b_pos = mulv2nf(addv2f(b->min, b->max), 0.5);
     const v2f n = subv2f(b_pos, a_pos);
@@ -597,11 +597,11 @@ bool pf_aabb_to_aabb(const pf_aabb *a, const pf_aabb *b, v2f *normal, float *pen
     }
 }
 
-bool pf_rect_to_rect(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+bool pf_rect_to_rect(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
     const v2f n = subv2f(b->pos, a->pos);
     const v2f overlap = subv2f(addv2f(a->shape.radii, b->shape.radii), absv2f(n));
-    const pf_aabb a_shape = pf_body_to_aabb(a);
-    const pf_aabb b_shape = pf_body_to_aabb(b);
+    const PfAabb a_shape = pf_body_to_aabb(a);
+    const PfAabb b_shape = pf_body_to_aabb(b);
     if (!pf_intersect(&a_shape, &b_shape)) {
         return false;
     } else if (fabsf(overlap.x) < fabsf(overlap.y)) {
@@ -615,7 +615,7 @@ bool pf_rect_to_rect(const pf_body *a, const pf_body *b, v2f *normal, float *pen
     }
 }
 
-bool pf_rect_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+bool pf_rect_to_circle(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
     // Is position outside of a direct vertical/horizontal face
     const bool out_lf = b->pos.x < a->pos.x - a->shape.radii.x;
     const bool out_rt = b->pos.x > a->pos.x + a->shape.radii.x;
@@ -623,7 +623,7 @@ bool pf_rect_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *p
     const bool out_dn = b->pos.y > a->pos.y + a->shape.radii.y;
     if ((out_lf || out_rt) && (out_up || out_dn)) {
         // Treat as (circle/corner_point)_to_circle collision
-        pf_body a_ = *a;
+        PfBody a_ = *a;
         a_.shape.tag = PF_SHAPE_CIRCLE;
         a_.shape.radius = 0;
         a_.pos.x += out_lf ? -a->shape.radii.x : a->shape.radii.x;
@@ -631,14 +631,14 @@ bool pf_rect_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *p
         return pf_circle_to_circle(&a_, b, normal, penetration);
     } else {
         // Treat as pf_rect_to_rect collision
-        pf_body b_ = *b;
+        PfBody b_ = *b;
         b_.shape.tag = PF_SHAPE_RECT;
         b_.shape.radii = _v2f(b->shape.radius, b->shape.radius);
         return pf_rect_to_rect(a, &b_, normal, penetration);
     }
 }
 
-bool pf_circle_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+bool pf_circle_to_circle(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
     const v2f n = subv2f(b->pos, a->pos);
     float dist_sq = sqlenv2f(n);
     float dist = sqrtf(dist_sq);
@@ -655,15 +655,15 @@ bool pf_circle_to_circle(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
-bool pf_circle_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_tri *t = &b->shape.tri;
+bool pf_circle_to_tri_ul(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfTri *t = &b->shape.tri;
     assert(t->hypotenuse == PF_CORNER_UL);
     const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
     const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
     const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
     v2f p;
     bool inside;
-    const pf_tri_region region = pf_closest_point_triangle(&ur, &dl, &dr, &a->pos, &p, &inside);
+    const PfTriRegion region = pf_closest_point_triangle(&ur, &dl, &dr, &a->pos, &p, &inside);
 
     const v2f diff = subv2f(p, a->pos);
     *penetration = a->shape.radius + (inside ? lenv2f(diff) : -lenv2f(diff));
@@ -702,15 +702,15 @@ bool pf_circle_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
-bool pf_circle_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_tri *t = &b->shape.tri;
+bool pf_circle_to_tri_ur(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfTri *t = &b->shape.tri;
     assert(t->hypotenuse == PF_CORNER_UR);
     const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
     const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
     const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
     v2f p;
     bool inside;
-    const pf_tri_region region = pf_closest_point_triangle(&ul, &dl, &dr, &a->pos, &p, &inside);
+    const PfTriRegion region = pf_closest_point_triangle(&ul, &dl, &dr, &a->pos, &p, &inside);
     
     const v2f diff = subv2f(p, a->pos);
     *penetration = a->shape.radius + (inside ? lenv2f(diff) : -lenv2f(diff));
@@ -749,15 +749,15 @@ bool pf_circle_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
-bool pf_circle_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_tri *t = &b->shape.tri;
+bool pf_circle_to_tri_dl(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfTri *t = &b->shape.tri;
     assert(t->hypotenuse == PF_CORNER_DL);
     const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
     const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
     const v2f dr = addv2f(b->pos, _v2f( t->radii.x,  t->radii.y));
     v2f p;
     bool inside;
-    const pf_tri_region region = pf_closest_point_triangle(&ul, &ur, &dr, &a->pos, &p, &inside);
+    const PfTriRegion region = pf_closest_point_triangle(&ul, &ur, &dr, &a->pos, &p, &inside);
 
     const v2f diff = subv2f(p, a->pos);
     *penetration = a->shape.radius + (inside ? lenv2f(diff) : -lenv2f(diff));
@@ -796,15 +796,15 @@ bool pf_circle_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
-bool pf_circle_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_tri *t = &b->shape.tri;
+bool pf_circle_to_tri_dr(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfTri *t = &b->shape.tri;
     assert(t->hypotenuse == PF_CORNER_DR);
     const v2f ul = addv2f(b->pos, _v2f(-t->radii.x, -t->radii.y));
     const v2f ur = addv2f(b->pos, _v2f( t->radii.x, -t->radii.y));
     const v2f dl = addv2f(b->pos, _v2f(-t->radii.x,  t->radii.y));
     v2f p;
     bool inside;
-    const pf_tri_region region = pf_closest_point_triangle(&ul, &ur, &dl, &a->pos, &p, &inside);
+    const PfTriRegion region = pf_closest_point_triangle(&ul, &ur, &dl, &a->pos, &p, &inside);
 
     const v2f diff = subv2f(p, a->pos);
     *penetration = a->shape.radius + (inside ? lenv2f(diff) : -lenv2f(diff));
@@ -843,7 +843,7 @@ bool pf_circle_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float 
     return true;
 }
 
-bool pf_circle_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+bool pf_circle_to_tri(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
     switch (b->shape.tri.hypotenuse) {
     case PF_CORNER_UL:
         return pf_circle_to_tri_ul(a, b, normal, penetration);
@@ -865,10 +865,10 @@ float pf_project_slope(const v2f *proj, const v2f *min_pos, const v2f *max_pos) 
     return max - min;
 }
 
-bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_ul(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -887,10 +887,10 @@ bool pf_rect_to_tri_ul(const pf_body *a, const pf_body *b, v2f *normal, float *p
     return *penetration > 0;
 }
 
-bool pf_rect_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_ur(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -909,10 +909,10 @@ bool pf_rect_to_tri_ur(const pf_body *a, const pf_body *b, v2f *normal, float *p
     return *penetration > 0;
 }
 
-bool pf_rect_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_dl(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -931,10 +931,10 @@ bool pf_rect_to_tri_dl(const pf_body *a, const pf_body *b, v2f *normal, float *p
     return *penetration > 0;
 }
 
-bool pf_rect_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_dr(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -954,10 +954,10 @@ bool pf_rect_to_tri_dr(const pf_body *a, const pf_body *b, v2f *normal, float *p
 }
 
 
-bool pf_rect_to_tri_ul_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_ul_line(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -980,10 +980,10 @@ bool pf_rect_to_tri_ul_line(const pf_body *a, const pf_body *b, v2f *normal, flo
     return true;
 }
 
-bool pf_rect_to_tri_ur_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_ur_line(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -1006,10 +1006,10 @@ bool pf_rect_to_tri_ur_line(const pf_body *a, const pf_body *b, v2f *normal, flo
     return true;
 }
 
-bool pf_rect_to_tri_dl_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_dl_line(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -1032,10 +1032,10 @@ bool pf_rect_to_tri_dl_line(const pf_body *a, const pf_body *b, v2f *normal, flo
     return true;
 }
 
-bool pf_rect_to_tri_dr_line(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
-    const pf_aabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb t_box = pf_tri_to_aabb(&b->pos, t);
+bool pf_rect_to_tri_dr_line(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
+    const PfAabb r_box = pf_rect_to_aabb(&a->pos, &a->shape.radii);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb t_box = pf_tri_to_aabb(&b->pos, t);
     // Collisions for sides
     if (!pf_aabb_to_aabb(&r_box, &t_box, normal, penetration)) {
         return false;
@@ -1059,7 +1059,7 @@ bool pf_rect_to_tri_dr_line(const pf_body *a, const pf_body *b, v2f *normal, flo
 
 }
 
-bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *penetration) {
+bool pf_rect_to_tri(const PfBody *a, const PfBody *b, v2f *normal, float *penetration) {
     const bool line = b->shape.tri.line;
     switch (b->shape.tri.hypotenuse) {
     case PF_CORNER_UL:
@@ -1075,11 +1075,11 @@ bool pf_rect_to_tri(const pf_body *a, const pf_body *b, v2f *normal, float *pene
     }
 }
 
-inline v2f pf_aabb_pos(const pf_aabb *a) {
+inline v2f pf_aabb_pos(const PfAabb *a) {
     return divv2nf(addv2f(a->min, a->max), 2);
 }
 
-bool pf_solve_collision(const pf_body *a, const pf_body *b, pf_manifold *m) {
+bool pf_solve_collision(const PfBody *a, const PfBody *b, PfManifold *m) {
     if (pf_body_to_body(a, b, &m->normal, &m->penetration)) {
         if (fabsf(m->penetration) < 0.0001) {
             return false;
@@ -1092,7 +1092,7 @@ bool pf_solve_collision(const pf_body *a, const pf_body *b, pf_manifold *m) {
     return false;
 }
 
-v2f pf_gravity_v2f(pf_dir dir, float vel) {
+v2f pf_gravity_v2f(PfDir dir, float vel) {
     switch (dir) {
     case PF_DIR_U:
         return _v2f(0, -vel);
@@ -1107,7 +1107,7 @@ v2f pf_gravity_v2f(pf_dir dir, float vel) {
     }
 }
 
-void pf_step_forces(float dt, pf_body *a) {
+void pf_step_forces(float dt, PfBody *a) {
     if (!nearzerof(a->inverse_mass)) {
         a->in.impulse = mulv2f(a->in.impulse, a->in.decay);
         a->ex.impulse = mulv2f(a->ex.impulse, a->ex.decay);
@@ -1123,7 +1123,7 @@ void pf_step_forces(float dt, pf_body *a) {
     }
 }
 
-void pf_update_dpos(float dt, pf_body *a) {
+void pf_update_dpos(float dt, PfBody *a) {
     if (!nearzerof(a->inverse_mass)) {
         a->in.impulse = clampv2f(sigv2f(a->in.cap), absv2f(a->in.cap), a->in.impulse);
         a->ex.impulse = clampv2f(sigv2f(a->ex.cap), absv2f(a->ex.cap), a->ex.impulse);
@@ -1140,11 +1140,11 @@ void pf_update_dpos(float dt, pf_body *a) {
     }
 }
 
-void pf_apply_dpos(pf_body *a) {
+void pf_apply_dpos(PfBody *a) {
     a->pos = addv2f(a->pos, a->dpos);
 }
 
-void pf_pos_correction(const pf_manifold *m, pf_body *a,  pf_body *b) {
+void pf_pos_correction(const PfManifold *m, PfBody *a,  PfBody *b) {
     float percent = 0.2;
     float slop = 0.01;
     float adjust = (m->penetration - slop) / (a->inverse_mass + b->inverse_mass);
@@ -1153,7 +1153,7 @@ void pf_pos_correction(const pf_manifold *m, pf_body *a,  pf_body *b) {
     b->pos = addv2f(b->pos, mulv2nf(correction, b->inverse_mass));
 }
 
-void pf_apply_manifold(const pf_manifold *m, pf_body *a, pf_body *b) {
+void pf_apply_manifold(const PfManifold *m, PfBody *a, PfBody *b) {
     const float inverse_mass_sum = a->inverse_mass + b->inverse_mass;
     if (nearzerof(inverse_mass_sum)) {
         // TODO: verify this below
@@ -1185,12 +1185,12 @@ void pf_apply_manifold(const pf_manifold *m, pf_body *a, pf_body *b) {
     b->ex.impulse = addv2f(b->ex.impulse, mulv2nf(tagent_impulse, b->inverse_mass));
 }
 
-void pf_body_set_mass(float mass, pf_body *a) {
+void pf_body_set_mass(float mass, PfBody *a) {
     a->mass = mass;
     a->inverse_mass = recipinff(mass);
 }
 
-float pf_mass_from_density(float density, const pf_shape shape) {
+float pf_mass_from_density(float density, const PfShape shape) {
     switch (shape.tag) {
     case PF_SHAPE_RECT: return density * shape.radii.x * shape.radii.y;
     case PF_SHAPE_CIRCLE: return density * M_PI *shape.radius *shape.radius;
@@ -1198,40 +1198,40 @@ float pf_mass_from_density(float density, const pf_shape shape) {
     }
 }
 
-void pf_body_esque(float density, float restitution, pf_body *a) {
+void pf_body_esque(float density, float restitution, PfBody *a) {
     pf_body_set_mass(pf_mass_from_density(density, a->shape), a);
     a->restitution = restitution;
 }
 
-void pf_rock_esque(pf_body *a) {
+void pf_rock_esque(PfBody *a) {
     pf_body_esque(0.6, 0.1, a);
 }
 
-void pf_wood_esque(pf_body *a) {
+void pf_wood_esque(PfBody *a) {
     pf_body_esque(0.3, 0.2, a);
 }
 
-void pf_metal_esque(pf_body *a) {
+void pf_metal_esque(PfBody *a) {
     pf_body_esque(1.2, 0.05, a);
 }
 
-void pf_bouncy_ball_esque(pf_body *a) {
+void pf_bouncy_ball_esque(PfBody *a) {
     pf_body_esque(0.3, 0.8, a);
 }
 
-void pf_super_ball_esque(pf_body *a) {
+void pf_super_ball_esque(PfBody *a) {
     pf_body_esque(0.3, 0.95, a);
 }
 
-void pf_pillow_esque(pf_body *a) {
+void pf_pillow_esque(PfBody *a) {
     pf_body_esque(0.1, 0.2, a);
 }
 
-void pf_static_esque(pf_body *a) {
+void pf_static_esque(PfBody *a) {
     pf_body_esque(0, 0.4, a);
 }
 
-float pf_tri_slope(const v2f *radii, pf_corner hypotenuse) {
+float pf_tri_slope(const v2f *radii, PfCorner hypotenuse) {
     switch (hypotenuse) {
     case PF_CORNER_UL:
     case PF_CORNER_DR:
@@ -1245,7 +1245,7 @@ float pf_tri_slope(const v2f *radii, pf_corner hypotenuse) {
 }
 
 // Returns a normal facing inwards
-v2f tri_normal(const v2f *radii, pf_corner hypotenuse) {
+v2f tri_normal(const v2f *radii, PfCorner hypotenuse) {
     switch (hypotenuse) {
     case PF_CORNER_UL:
         return normv2f(_v2f(radii->y, radii->x));
@@ -1260,9 +1260,9 @@ v2f tri_normal(const v2f *radii, pf_corner hypotenuse) {
     }
 }
 
-pf_tri _pf_tri(v2f radii, bool line, pf_corner hypotenuse) {
+PfTri _pf_tri(v2f radii, bool line, PfCorner hypotenuse) {
     const float radians = tri_angle(&radii, hypotenuse);
-    return (pf_tri) {
+    return (PfTri) {
         .radii = radii,
         .line = line,
         .hypotenuse = hypotenuse,
@@ -1275,10 +1275,10 @@ pf_tri _pf_tri(v2f radii, bool line, pf_corner hypotenuse) {
     };
 }
 
-pf_group _pf_platform() {
-    return (pf_group) {
+PfGroup _pf_platform() {
+    return (PfGroup) {
         .tag = PF_GROUP_PLATFORM,
-        .platform = (pf_platform) {
+        .platform = (PfPlatform) {
             .allow = 0,
             .convey = _v2f(0,0),
             .left = NULL,
@@ -1287,10 +1287,10 @@ pf_group _pf_platform() {
     };
 }
 
-pf_body _pf_body() {
-    return (pf_body) {
+PfBody _pf_body() {
+    return (PfBody) {
         .mode = PF_MODE_DYNAMIC,
-        .shape = (pf_shape) {
+        .shape = (PfShape) {
                 .tag = PF_SHAPE_CIRCLE,
                 .radius = 0
             },
@@ -1322,28 +1322,28 @@ pf_body _pf_body() {
     };
 }
 
-pf_shape pf_circle(float radius) {
-    return (pf_shape) {
+PfShape pf_circle(float radius) {
+    return (PfShape) {
         .tag = PF_SHAPE_CIRCLE,
         .radius = radius,
     };
 }
 
-pf_shape pf_box(float side) {
-    return (pf_shape) {
+PfShape pf_box(float side) {
+    return (PfShape) {
         .tag = PF_SHAPE_RECT,
         .radii = _v2f(side, side),
     };
 }
 
-pf_shape pf_rect(float w, float h) {
-    return (pf_shape) {
+PfShape pf_rect(float w, float h) {
+    return (PfShape) {
         .tag = PF_SHAPE_RECT,
         .radii = _v2f(w, h),
     };
 }
 
-v2f pf_move_left_on_slope_transform(const pf_tri *t) {
+v2f pf_move_left_on_slope_transform(const PfTri *t) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
         return _v2f(t->sin, t->cos);
@@ -1359,7 +1359,7 @@ v2f pf_move_left_on_slope_transform(const pf_tri *t) {
     }
 }
 
-v2f pf_move_right_on_slope_transform(const pf_tri *t) {
+v2f pf_move_right_on_slope_transform(const PfTri *t) {
     switch (t->hypotenuse) {
     case PF_CORNER_UL:
         return _v2f(-t->sin, -t->cos);
@@ -1375,9 +1375,9 @@ v2f pf_move_right_on_slope_transform(const pf_tri *t) {
     }
 }
 
-void pf_transform_move_on_slope(pf_body *a, float dt_) {
+void pf_transform_move_on_slope(PfBody *a, float dt_) {
     const float dt = 2 * dt_; // Adjust for round off
-    const pf_body *b = a->group.object.parent;
+    const PfBody *b = a->group.object.parent;
     if (!b ||
         b->shape.tag != PF_SHAPE_TRI ||
         a->shape.tag != PF_SHAPE_RECT ||
@@ -1392,9 +1392,9 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
         a->in.impulse.x = 0;
         return;
     }
-    const pf_tri *t = &b->shape.tri;
-    const pf_aabb a_box = pf_body_to_aabb(a);
-    const pf_aabb b_box = pf_body_to_aabb(b);
+    const PfTri *t = &b->shape.tri;
+    const PfAabb a_box = pf_body_to_aabb(a);
+    const PfAabb b_box = pf_body_to_aabb(b);
     const float force = fabsf(a->in.impulse.x);
 
     float weight = 1;
@@ -1417,7 +1417,7 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                 // Move onto next platform
                 if (a->group.object.parent->group.platform.left) {
                     a->group.object.parent = a->group.object.parent->group.platform.left;
-                    const pf_body *c = a->group.object.parent;
+                    const PfBody *c = a->group.object.parent;
                     if (c->shape.tag == PF_SHAPE_TRI) {
                         pure = mulv2nf(pf_move_left_on_slope_transform(&c->shape.tri), force);
                     }
@@ -1439,7 +1439,7 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                 // Move onto next platform
                 if (a->group.object.parent->group.platform.left) {
                     a->group.object.parent = a->group.object.parent->group.platform.left;
-                    const pf_body *c = a->group.object.parent;
+                    const PfBody *c = a->group.object.parent;
                     if (c->shape.tag == PF_SHAPE_TRI) {
                         pure = mulv2nf(pf_move_left_on_slope_transform(&c->shape.tri), force);
                     }
@@ -1475,7 +1475,7 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                 // Move onto next slope
                 if (a->group.object.parent->group.platform.right) {
                     a->group.object.parent = a->group.object.parent->group.platform.right;
-                    const pf_body *c = a->group.object.parent;
+                    const PfBody *c = a->group.object.parent;
                     if (c->shape.tag == PF_SHAPE_TRI) {
                         pure = mulv2nf(pf_move_right_on_slope_transform(&c->shape.tri), force);
                     }
@@ -1497,7 +1497,7 @@ void pf_transform_move_on_slope(pf_body *a, float dt_) {
                 // Move onto next slope
                 if (a->group.object.parent->group.platform.right) {
                     a->group.object.parent = a->group.object.parent->group.platform.right;
-                    const pf_body *c = a->group.object.parent;
+                    const PfBody *c = a->group.object.parent;
                     if (c->shape.tag == PF_SHAPE_TRI) {
                         pure = mulv2nf(pf_move_right_on_slope_transform(&c->shape.tri), force);
                     }
