@@ -12,7 +12,16 @@
                     (km->b_key == MOVING_PLATFORM && km->manifold.normal.y <= 0)) {\
                     continue;\
                 }\
- 
+
+typedef int PolyRef;
+typedef int FaceRef;
+
+typedef struct {
+    PolyRef polyRef;
+    FaceRef faceRef;
+    float x;
+} FootPoint;
+
 typedef struct {
     int key;
     const PfBody *body;
@@ -303,7 +312,7 @@ void make_world(world *w) {
         
         a[4]->group.platform.left = a[3];
     }
-    // tri guard
+    // tri guards
     {
         const float x = 32;
         const float y = 16;
@@ -795,6 +804,48 @@ void reset_collisions(world *w) {
     w->manifold_num = 0;
 }
 
+void foot_point_xy(const world *w, const FootPoint *fp, v2f *xy) {
+    const PfBody *body = &w->bodies[fp->polyRef];
+    const v2f pos = body->pos;
+    const PfShape *shape = &body->shape;
+    switch (shape->tag) {
+    case PF_SHAPE_RECT: {
+        const v2f p0 = _v2f(pos.x - shape->radii.x, pos.y - shape->radii.y);
+        const v2f p1 = _v2f(pos.x + shape->radii.x, pos.y - shape->radii.y);
+        const v2f p2 = _v2f(pos.x + shape->radii.x, pos.y + shape->radii.y);
+        const v2f p3 = _v2f(pos.x - shape->radii.x, pos.y + shape->radii.y);
+        switch (fp->faceRef) {
+            case 0:
+                *xy = lerp(p0, p1, fp->x);
+                break;
+            case 1:
+                *xy = lerp(p1, p2, fp->x);
+                break;
+            case 2:
+                *xy = lerp(p2, p3, fp->x);
+                break;
+            case 3:
+                *xy = lerp(p3, p0, fp->x);
+                break;
+            default:
+            // should never arrive here
+            xy->x = pos.x;
+            xy->y = pos.y;
+            break;
+        }
+        break;
+    }
+    case PF_SHAPE_TRI:
+        xy->x = pos.x;
+        xy->y = pos.y;
+        break;
+    default:
+        xy->x = pos.x;
+        xy->y = pos.y;
+        break;
+    }
+}
+
 void render_demo(demo *d) {
     SDL_SetRenderDrawColor(d->renderer, 0x00, 0x00, 0x00, 0xff);
     SDL_RenderClear(d->renderer);
@@ -897,5 +948,25 @@ void render_demo(demo *d) {
         default: assert(false);
         }
     }
+
+    {
+        FootPoint fp;
+        fp.x = 0.2;
+        fp.polyRef = 3;
+        fp.faceRef = 0;
+        v2f xy = _v2f(0,0);
+        foot_point_xy(&d->world, &fp, &xy);
+        printf("%0.2f, %0.2f\n", xy.x, xy.y);
+
+        SDL_SetRenderDrawColor(d->renderer, 0xff, 0x00, 0x00, 0xff);
+        SDL_Rect point_rect;
+
+        point_rect.x = scale * (xy.x + cam.x) - 1;
+        point_rect.y = scale * (xy.y + cam.y) - 1;
+        point_rect.w = 3;
+        point_rect.h = 3;
+        SDL_RenderFillRect(d->renderer, &point_rect);
+    }
+     
     SDL_RenderPresent(d->renderer);
 }
