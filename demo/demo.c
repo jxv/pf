@@ -504,6 +504,7 @@ void loop_demo(demo *d) {
         //
         step_world(&d->world);
 
+	/*
         printf("dpos: (%.2f,%.2f)\tintern: (%.2f,%.2f)\textern: (%.2f,%.2f)\t gravity: %.2f\tparent: %p\n",
             ch->dpos.x, ch->dpos.y,
             ch->in.impulse.x, ch->in.impulse.y,
@@ -511,6 +512,7 @@ void loop_demo(demo *d) {
             ch->gravity.vel,
             (void*)ch->group.object.parent
         );
+	*/
 
         render_demo(d);
         const unsigned int end_tick = SDL_GetTicks();
@@ -950,13 +952,18 @@ void render_demo(demo *d) {
     }
 
     {
-        FootPoint fp;
-        fp.x = 0.2;
-        fp.polyRef = 3;
-        fp.faceRef = 0;
+        static FootPoint fp = { .x = 0.0, .polyRef = 3, .faceRef = 0 };
+
+	fp.x += 0.01;
+	if (fp.x > 1.0) {
+		fp.x = 0;
+		fp.faceRef = (fp.faceRef + 1) % 4;
+	}
+
+
         v2f xy = _v2f(0,0);
         foot_point_xy(&d->world, &fp, &xy);
-        printf("%0.2f, %0.2f\n", xy.x, xy.y);
+        // printf("%0.2f, %0.2f\n", xy.x, xy.y);
 
         SDL_SetRenderDrawColor(d->renderer, 0xff, 0x00, 0x00, 0xff);
         SDL_Rect point_rect;
