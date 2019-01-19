@@ -65,11 +65,36 @@ typedef struct {
 void make_demo(demo *d, SDL_Renderer *renderer);
 void loop_demo(demo *d);
 
+float shape_face_length(const PfShape *sh, FaceRef ref) {
+	switch (sh->tag) {
+	case PF_SHAPE_RECT: {
+		switch (ref) {
+		case 0: // top
+		case 2: // bottom
+			return sh->radii.x * 2;
+		case 1: // right
+		case 3: // left
+			return sh->radii.y * 2;
+		default:
+			// should never reach here
+			break;
+		}
+	}
+	default:
+		return 0;
+	}
+}
+
+float body_face_length(const PfBody *b, FaceRef ref) {
+	return shape_face_length(&b->shape, ref);
+}
+
 int main() {
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
         return EXIT_FAILURE;
     }
     SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320, 240, 0);
+    // SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320 * 4, 240 * 4, 0);
     SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
     demo demo;
     puts("make_demo");
@@ -954,7 +979,7 @@ void render_demo(demo *d) {
     {
         static FootPoint fp = { .x = 0.0, .polyRef = 3, .faceRef = 0 };
 
-	fp.x += 0.01;
+	fp.x += 1 / body_face_length(&d->world.bodies[fp.polyRef], fp.faceRef);
 	if (fp.x > 1.0) {
 		fp.x = 0;
 		fp.faceRef = (fp.faceRef + 1) % 4;
@@ -968,10 +993,10 @@ void render_demo(demo *d) {
         SDL_SetRenderDrawColor(d->renderer, 0xff, 0x00, 0x00, 0xff);
         SDL_Rect point_rect;
 
-        point_rect.x = scale * (xy.x + cam.x) - 1;
-        point_rect.y = scale * (xy.y + cam.y) - 1;
-        point_rect.w = 3;
-        point_rect.h = 3;
+        point_rect.x = scale * (xy.x + cam.x) - 3;
+        point_rect.y = scale * (xy.y + cam.y) - 3;
+        point_rect.w = 7;
+        point_rect.h = 7;
         SDL_RenderFillRect(d->renderer, &point_rect);
     }
      
