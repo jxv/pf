@@ -93,8 +93,8 @@ int main() {
     if (SDL_Init(SDL_INIT_EVERYTHING) > 0) {
         return EXIT_FAILURE;
     }
-    SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320, 240, 0);
-    // SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320 * 4, 240 * 4, 0);
+    // SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320, 240, 0);
+    SDL_Window *win = SDL_CreateWindow("demo", 0, 0, 320 * 4, 240 * 4, 0);
     SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_PRESENTVSYNC);
     demo demo;
     puts("make_demo");
@@ -855,17 +855,71 @@ void foot_point_xy(const world *w, const FootPoint *fp, v2f *xy) {
                 *xy = lerp(p3, p0, fp->x);
                 break;
             default:
-            // should never arrive here
-            xy->x = pos.x;
-            xy->y = pos.y;
-            break;
+                assert(false);
+                break;
         }
         break;
     }
-    case PF_SHAPE_TRI:
-        xy->x = pos.x;
-        xy->y = pos.y;
-        break;
+    case PF_SHAPE_TRI: {
+        const PfAabb tri = pf_body_to_aabb(body);
+        const v2f ul= tri.min; // ul
+        const v2f ur = _v2f(tri.max.x, tri.min.y); // ur
+        const v2f dl = _v2f(tri.min.x, tri.max.y); // dl
+        const v2f dr = tri.max; // dr
+        switch (body->shape.tri.hypotenuse) {
+        case PF_CORNER_UL: {
+            switch (fp->faceRef) {
+            // dl-ur
+            case 0: *xy = lerp(dl, ur, fp->x); break;
+            // ur-dr
+            case 1: *xy = lerp(ur, dr, fp->x); break;
+            // dl-dr
+            case 2: *xy = lerp(dr, dl, fp->x); break;
+            default: assert(false); break;
+            }
+            break;
+        }
+        case PF_CORNER_UR: {
+            switch (fp->faceRef) {
+            // ul-dr
+            case 0: *xy = lerp(ul, dr, fp->x); break;
+            // dr-dl
+            case 1: *xy = lerp(dr, dl, fp->x); break;
+            // dl-ul
+            case 2: *xy = lerp(dl, ul, fp->x); break;
+            default: assert(false); break;
+            }
+            break;
+        }
+        case PF_CORNER_DL: {
+            switch (fp->faceRef) {
+            // ul-dr
+            case 0: *xy = lerp(ul, dr, fp->x); break;
+            // dr-ur
+            case 1: *xy = lerp(dr, ur, fp->x); break;
+            // ur-ul
+            case 2: *xy = lerp(ur, ul, fp->x); break;
+            default: assert(false); break;
+            }
+            break;
+        }
+        case PF_CORNER_DR: {
+            switch (fp->faceRef) {
+            // dl-ur
+            case 0: *xy = lerp(dl, ur, fp->x); break;
+            // ur-ul
+            case 1: *xy = lerp(ur, ul, fp->x); break;
+            // ul-dl
+            case 2: *xy = lerp(ul, dl, fp->x); break;
+            default: assert(false); break;
+            }
+            break;
+        }
+        default:
+            assert(false);
+            break;
+       }
+    }
     default:
         xy->x = pos.x;
         xy->y = pos.y;
@@ -885,8 +939,8 @@ void render_demo(demo *d) {
     static v2f cam;
     static float angle = 0;
     angle += d->world.dt;
-    const float SCREEN_W2 = 160;
-    const float SCREEN_H2 = 120;
+    const float SCREEN_W2 = 160 * 4;
+    const float SCREEN_H2 = 120 * 4;
     const float scale_weight = 0.95;
     static float scale_lerp = 1;
     const float scale_now = clampf(0.3, 9, SCREEN_H2 / lenv2f(subv2f(p1_pos, p2_pos))); 
@@ -977,7 +1031,8 @@ void render_demo(demo *d) {
     }
 
     {
-        static FootPoint fp = { .x = 0.0, .polyRef = 3, .faceRef = 0 };
+        //static FootPoint fp = { .x = 0.0, .polyRef = 3, .faceRef = 0 };
+        static FootPoint fp = { .x = 0.0, .polyRef = 1, .faceRef = 0 };
 
 	fp.x += 1 / body_face_length(&d->world.bodies[fp.polyRef], fp.faceRef);
 	if (fp.x > 1.0) {
